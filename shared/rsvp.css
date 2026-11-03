@@ -1,0 +1,17 @@
+
+.rsvp-open{overflow:hidden}
+.rsvp-curtain{position:fixed;z-index:9999;inset:0;background:rgba(24,13,18,.74);display:grid;place-items:center;padding:16px;overflow:auto}
+.rsvp-curtain[hidden]{display:none}
+.rsvp-dialog{position:relative;width:min(100%,490px);max-height:calc(100dvh - 32px);overflow:auto;border-radius:19px;background:#fffdf9;color:#542936;text-align:center;box-shadow:0 25px 110px #13070b8c;padding:34px clamp(22px,6vw,42px) 28px;font:400 15px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif}
+.rsvp-dialog *{box-sizing:border-box}.rsvp-dialog h2{font:500 32px/1.2 Georgia,serif;margin:10px 0 17px}.rsvp-dialog p{line-height:1.7}.rsvp-kicker{letter-spacing:.19em;font-size:10px!important;font-weight:700;color:#8e6572}
+.rsvp-x{position:absolute;right:13px;top:9px;font:26px Georgia,serif;color:#6e3c4a;background:none;border:0;cursor:pointer}
+.rsvp-dialog label{display:block;text-align:left;font-size:12px;font-weight:700;margin:16px 0 7px}
+.rsvp-dialog input,.rsvp-dialog textarea{display:block;width:100%;border-radius:9px;border:1px solid #d6c0c0;background:white;padding:13px 14px;font:inherit;color:#362c30;text-align:left;outline-offset:2px}
+.rsvp-dialog input:focus,.rsvp-dialog textarea:focus{outline:2px solid #99596a}
+.rsvp-primary{display:block;margin:20px 0 0;width:100%;padding:14px 22px;background:#622037;color:white;border:0;border-radius:9px;font-weight:700;cursor:pointer;font:600 14px system-ui}
+.rsvp-error{background:#fff0ed;color:#982d3c;border-radius:8px;padding:9px;font-size:13px}
+.rsvp-demo{font-size:12px!important;background:#fff1de;color:#77532d;border-radius:8px;padding:10px}
+.rsvp-person{background:#f9edec;padding:13px;border-radius:10px;font-weight:700}
+.rsvp-choices{display:flex;gap:12px;margin:17px 0}.rsvp-choices button{flex:1;border:1px solid #773a4d;color:#73354c;background:#fff;border-radius:8px;padding:13px 7px;cursor:pointer}.rsvp-choices button.chosen{background:#67263a;color:#fff}
+.rsvp-dialog input[type=number]{max-width:110px;margin:auto;text-align:center}
+.rsvp-colors{display:flex;justify-content:center;gap:7px;margin:22px 0}.rsvp-colors span{height:57px;flex:1;border-radius:60px 60px 4px 4px}
