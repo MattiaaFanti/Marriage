@@ -8,6 +8,19 @@ Four mobile-first wedding invitation concepts inspired by the uploaded video **t
 - [03 — Caramel Editorial (camel and sand)](./editorial/)
 - [04 — Vintage Romance (warm parchment)](./vintage/)
 
+## Updated requirements (3 November 2026)
+- Opening title card shows **Kirsten & Mattia — 07.12.2026**, automatically fades after **2.5 seconds**.
+- The next screen follows the **t main** childhood-photos concept with a subtle face crop/zoom.
+- RSVP does **not** prompt for a password or a typed code. In live mode, a personalized link contains an unguessable invitation token, so the guest need only select attendance.
+- Reception: Mataas Na Kahoy, Lipa, Batangas. The map link points to the location supplied by the couple.
+- Principal sponsor correction: **Mario Buccola**.
+- All four designs share one RSVP backend and music path: `assets/music.mp3`.
+
+## Required assets for the published website
+The GitHub connector used for this commit supports UTF-8 source files but not the uploaded binary photos or MP3. To avoid serving poor-quality embedded previews, extract the supplied `Marriage_assets_HD_and_music.zip` and upload these files to an `assets/` directory **at the repository root**:
+`kirsten.webp`, `mattia.webp`, `restaurant.webp`, `music.mp3`.
+Their filenames must be exact. Without these uploads, a low-resolution photo fallback appears and browser audio cannot load. Publishing commercial music requires applicable distribution rights.
+
 Enable GitHub Pages on `main` at the repository root, then use:
 `https://mattiaafanti.github.io/Marriage/burgundy/`
 (and the other directories).
