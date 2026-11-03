@@ -1,53 +1,36 @@
-# Mattia & Kirsten — Wedding Invitation
+# Kirsten & Mattia — Wedding invitations
 
-Four mobile-first wedding invitation concepts inspired by the uploaded video **t main.mp4** and three reference clips. The primary design reproduces the childhood-photo opening and the RSVP journey: open invite → verify individual invitation → attend / not attend → number of guests → optional email → confirmation → dress-code reminder.
+Wedding date: **Monday, 7 December 2026**.
 
-## Preview routes
-- [01 — Childhood Story (burgundy)](./burgundy/)
-- [02 — Botanical Garden (olive and ivory)](./botanical/)
-- [03 — Caramel Editorial (camel and sand)](./editorial/)
-- [04 — Vintage Romance (warm parchment)](./vintage/)
+Reception: **Bahay Baluk-Baluk Restaurant**, Villas by Eco Hotels, Lumang Lipa, Mataasnakahoy, Batangas, Philippines.
 
-## Updated requirements (3 November 2026)
-- Opening title card shows **Kirsten & Mattia — 07.12.2026**, automatically fades after **2.5 seconds**.
-- The next screen follows the **t main** childhood-photos concept with a subtle face crop/zoom.
-- RSVP does **not** prompt for a password or a typed code. In live mode, a personalized link contains an unguessable invitation token, so the guest need only select attendance.
-- Reception: Mataas Na Kahoy, Lipa, Batangas. The map link points to the location supplied by the couple.
-- Principal sponsor correction: **Mario Buccola**.
-- All four designs share one RSVP backend and music path: `assets/music.mp3`.
+This repository contains four **independently designed sites**, each based on a different user-supplied video:
 
-## Required assets for the published website
-The GitHub connector used for this commit supports UTF-8 source files but not the uploaded binary photos or MP3. To avoid serving poor-quality embedded previews, extract the supplied `Marriage_assets_HD_and_music.zip` and upload these files to an `assets/` directory **at the repository root**:
-`kirsten.webp`, `mattia.webp`, `restaurant.webp`, `music.mp3`.
-Their filenames must be exact. Without these uploads, a low-resolution photo fallback appears and browser audio cannot load. Publishing commercial music requires applicable distribution rights.
+| Video | Directory | Design |
+|---|---|---|
+| `t main.mp4` | [burgundy/](./burgundy/) | Deep burgundy, childhood photos in frames, search-to-RSVP poster, 2.5-second initial monogram reveal |
+| `t1.mp4` | [botanical/](./botanical/) | Botanical white-green invitation sheets, floral corners, family and sponsors |
+| `t2.mp4` | [editorial/](./editorial/) | Blush editorial journal, photo collage, December calendar and timeline |
+| `t3.mp4` | [vintage/](./vintage/) | Ivory and champagne-gold formal invitation, cameo portraits, ceremonial sections |
 
-Enable GitHub Pages on `main` at the repository root, then use:
-`https://mattiaafanti.github.io/Marriage/burgundy/`
-(and the other directories).
+Use GitHub Pages with branch `main` and `/ (root)` as the publishing source. Home: `https://mattiaafanti.github.io/Marriage/`.
 
-## Architecture
-- Static HTML/CSS/JS on GitHub Pages (four styles, shared code).
-- Cloudflare Worker HTTP API + Cloudflare D1 for private guest roster and RSVP status.
-- Password-protected admin at the Worker /admin route, not on the static site.
-- HMAC-signed invitation tokens generated only on the Worker.
-- A single D1 database shared by all four design variants.
-- Initial guest list and private notes must NEVER be committed to this public repository.
+## Assets — important
 
-## Setup
-1. Choose the visual theme.
-2. Edit `shared/config.js` with the real date/venue and deployed Worker origin. Until then RSVP is visibly marked **DEMO** and only saved in the browser.
-3. Create D1, apply `cloudflare/schema.sql`, deploy `cloudflare/worker.js` through Wrangler or the Cloudflare dashboard. Configure Worker bindings and secrets.
-4. Import the roster into D1 privately (not to GitHub).
-5. Create personal invitation links from the Worker admin panel.
-6. Set Worker `ALLOWED_ORIGINS=https://mattiaafanti.github.io`.
+**Photos have not yet been uploaded to the repository.** All four site designs point to the original full-resolution files under `assets/`. Follow the instructions in [assets/README.md](./assets/README.md). Do not use low-quality `shared/photos.js`; the previous embedded thumbnail implementation has been removed.
 
-## Music
-The supplied song is Ben&Ben's `Araw-Araw`. The website supports softly playing audio (18% volume) after a visitor taps **Open invitation**. The commercial recording is intentionally NOT stored in this public repository. If licensed to publish, place an appropriately authorized `music.mp3` in `assets/`.
+The MP3 `ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3` is **already stored at the repository root**. The shared script attempts playback at 18% volume with no mute toggle. Browsers that forbid audible autoplay require the user's first gesture.
 
-## Unconfirmed event details
-Venue, schedule, address, route, RSVP deadline, and one tentative sponsor entry still need confirmation. The site deliberately displays placeholders rather than inventing details.
+## RSVP and Cloudflare
 
-## Privacy
-Only selected principal sponsors appear on the invitation itself. Individual guest names, attendance expectations, household allocations, private notes, and RSVP data live exclusively in D1. GitHub Pages hosts no guest list.
+The four sites share one RSVP front-end script, `shared/wedding.js`, and one Cloudflare D1/Worker backend under `cloudflare/`.
 
-Developer note: source videos are for design reference; no source TikTok media is re-hosted.
+- Invitees search their name and choose **Attending / Not attending**; there is **no password field** for invitees.
+- Live RSVP validation uses a signed personal link (`?invite=<token>`) supplied to each guest, not a typed password.
+- Until the Worker URL is configured in `shared/config.js`, the UI is in clearly labeled **PREVIEW ONLY** mode. Answers are **not sent to Cloudflare D1**.
+- The **admin panel remains password protected**, because guest attendance and internal notes are private. It is served by the Cloudflare Worker at `/admin`.
+- Private guest data and D1 imports must never be committed to GitHub.
+
+## Pending confirmation
+
+Wedding ceremony time, reception time, RSVP deadline, and transport arrangements are not specified yet and therefore intentionally remain unconfirmed in the templates.
