@@ -8,6 +8,43 @@
   const output = $("#modalContent");
   const music = $("#soundtrack");
   const tokenFromUrl = new URLSearchParams(location.search).get("invite") || "";
+  // Opening: 2.5-second animated title card, then the childhood-photo invitation.
+  const theme = document.body.dataset.theme || "burgundy";
+  const splash = document.getElementById("opening");
+  splash.innerHTML = '<div class="splash-card"><div class="splash-monogram">K<span>&</span>M</div><div class="splash-rule"></div><div class="splash-names">KIRSTEN <span>&</span> MATTIA</div><div class="splash-date">07 · 12 · 2026</div></div><button type="button" id="openInvite" hidden aria-hidden="true">Open</button>';
+  const stage = document.querySelector("#hero");
+  stage.innerHTML = '<div class="main-stage"><div class="stage-head"><div class="stage-flourish">✧ ─── ✧</div><p class="stage-kicker">THESE KIDS ARE</p><h1 class="stage-script">getting <span>married</span></h1><p class="stage-tagline">and they can\'t wait to celebrate with you!</p></div><div class="stage-portraits"><figure class="stage-child stage-child-left"><div class="stage-photo-clip"><img id="kirstenPhoto" alt="Kirsten as a child"></div><figcaption>little Kirsten</figcaption></figure><div class="stage-amp">&</div><figure class="stage-child stage-child-right"><div class="stage-photo-clip"><img id="mattiaPhoto" alt="Mattia as a child"></div><figcaption>little Mattia</figcaption></figure></div><div class="stage-bottom"><div class="stage-monogram">K <span>✧</span> M</div><h2>Kirsten <i>&</i> Mattia</h2><time datetime="2026-12-07">07 DECEMBER 2026</time><button type="button" class="primary rsvp-launch">RSVP · LET US KNOW</button><p class="stage-scroll">SCROLL TO SEE OUR STORY ↓</p></div></div>';
+  // Keep full-resolution files in assets/ (fallback is temporary if assets have not been uploaded).
+  const hiResImages = {kirsten:"../assets/kirsten.webp",mattia:"../assets/mattia.webp"};
+  window.addEventListener("load", () => {
+    const photoFallback = window.WEDDING_PHOTOS || {};
+    for (const person of ["kirsten","mattia"]) {
+      const img = document.getElementById(person+"Photo");
+      if (!img) continue;
+      img.onerror = () => { img.onerror = null; if (photoFallback[person]) img.src = photoFallback[person]; };
+      img.src = hiResImages[person];
+    }
+  }, {once:true});
+  // Insert the actual reception photo into the location section, for every theme.
+  const locationSection = document.getElementById("details");
+  if (locationSection) {
+    const locationContent = locationSection.querySelector(".content");
+    if (locationContent) {
+      const photo = document.createElement("figure");
+      photo.className = "reception-photo";
+      photo.innerHTML = '<img src="../assets/restaurant.webp" alt="Reception restaurant overlooking the mountains and lake in Mataas Na Kahoy, Batangas" loading="lazy"><figcaption>Our reception venue · Mataas Na Kahoy, Batangas</figcaption>';
+      photo.querySelector("img").addEventListener("error", () => photo.classList.add("reception-photo-missing"));
+      locationContent.insertBefore(photo, locationContent.querySelector(".two-cols") || locationContent.firstChild);
+    }
+  }
+  document.querySelectorAll(".sponsor-list p").forEach((p) => {
+    if (p.textContent.includes("Mario and Rita Morisco")) p.innerHTML = 'Mr. Mario Buccola &amp; Mrs. Rita Morisco';
+  });
+  window.setTimeout(() => {
+    splash.classList.add("dismissed");
+    document.body.style.overflow = "";
+  }, 2500);
+
   let state = { step: "intro", token: tokenFromUrl, name: "", guest: null, status: "", seats: 1, email: "", message: "", error: "", busy: false };
   const escapeText = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const errorText = () => state.error ? '<p class="error" role="alert">' + escapeText(state.error) + "</p>" : "";
@@ -38,7 +75,7 @@
     else { music.pause(); $("#musicText").textContent = "Off"; }
   });
   document.querySelectorAll(".jump").forEach(el => el.addEventListener("click", () => document.getElementById(el.dataset.target)?.scrollIntoView({behavior:"smooth"})));
-  const open = () => { modal.hidden = false; state.step = "intro"; state.error = ""; render(); };
+  const open = () => { modal.hidden = false; state.step = "find"; state.error = ""; render(); if (state.token && !demo) action("lookup"); };
   const close = () => { modal.hidden = true; state.error = ""; };
   document.querySelectorAll(".rsvp-launch").forEach(el => el.addEventListener("click", open));
   $("#modalClose").addEventListener("click", close);
@@ -56,9 +93,9 @@
       html = '<div class="ornament">✧</div><h2 id="modalTitle">BEFORE YOU RSVP</h2><p>A little note before you go ahead.</p><div class="info"><p>One response per invitation. You can return using the same link to update your response. Please do not exceed the seats reserved under your name.</p></div>' + button("I understand", "find");
     }
     if (state.step === "find") {
-      html = '<div class="ornament">✧</div><h2 id="modalTitle">LET\'S FIND YOU!</h2><p>Enter the name on your invitation.</p><form id="guestSearch">' +
+      html = '<div class="ornament">✧</div><h2 id="modalTitle">LET\'S FIND YOU!</h2><p>' + (state.token && !demo ? 'We are checking your personal invitation.' : 'Enter the name on your invitation. No password needed.') + '</p><form id="guestSearch">' +
         '<label for="guestName">Guest name</label><input id="guestName" autocomplete="name" required placeholder="Your full name" value="' + escapeText(state.name) + '">' +
-        '<label for="guestToken">Personal invitation code</label><input id="guestToken" autocomplete="off" placeholder="Invitation code" value="' + escapeText(state.token) + '">' +
+        '' +
         errorText() + demoNote + button("Search invitation", "lookup") + '</form>';
     }
     if (state.step === "decision") {
@@ -96,17 +133,18 @@
     }
     if (command === "lookup") {
       state.name = $("#guestName")?.value.trim() || "";
-      state.token = $("#guestToken")?.value.trim() || "";
-      if (!state.name) { state.error = "Please enter the name on your invitation."; render(); return; }
+      state.token = tokenFromUrl;
+      if (!state.name && (demo || !state.token)) { state.error = "Please enter the name on your invitation."; render(); return; }
       try {
         if (demo) {
           state.guest = {display_name:state.name, seats:2, rsvp_status:"pending", guest_count:0};
         } else {
-          if (!state.token) throw Error("Please enter the personal invitation code we sent you.");
+          if (!state.token) throw Error("Please open the personal invitation link sent to you by the couple.");
           const response = await fetch(api + "/api/invite?token=" + encodeURIComponent(state.token), {cache:"no-store"});
           const data = await response.json();
           if (!response.ok) throw Error(data.error || "Invitation not found.");
-          if (String(data.guest.display_name).trim().toLocaleLowerCase() !== state.name.toLocaleLowerCase()) throw Error("The name does not match this invitation code.");
+          if (state.name && String(data.guest.display_name).trim().toLocaleLowerCase() !== state.name.toLocaleLowerCase()) throw Error("The name does not match your personal invitation.");
+          state.name = String(data.guest.display_name);
           state.guest = data.guest;
         }
         state.status = state.guest.rsvp_status === "pending" ? "" : state.guest.rsvp_status;
