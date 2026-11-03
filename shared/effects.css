@@ -1,0 +1,34 @@
+/* Individual motion language for the four reference-video recreations. */
+@media (prefers-reduced-motion: no-preference) {
+ html.wedding-motion .motion-section:not(.motion-visible) {opacity:0;transform:translateY(25px) scale(.99)}
+ html.wedding-motion .motion-section {transition:opacity .82s ease,transform .9s cubic-bezier(.2,.7,.2,1)}
+ html.wedding-motion .motion-section.motion-visible {opacity:1;transform:none}
+ html.motion-botanical .sheet.motion-section:not(.motion-visible) {transform:translateY(38px)}
+ html.motion-botanical .sheet.motion-section {transition:opacity 1.1s ease,transform 1.15s ease}
+ html.motion-editorial .chapter.motion-section:not(.motion-visible) {transform:translateY(34px)}
+ html.motion-editorial .chapter.motion-visible {transform:translateY(0)}
+ html.motion-vintage .paper.motion-section:not(.motion-visible) {transform:translateY(12px) scale(.985)}
+ html.motion-vintage .paper.motion-section {transition:opacity 1.3s ease,transform 1.3s ease}
+ html.motion-burgundy .poster .child.left{animation:float-left 6s ease-in-out infinite}
+ html.motion-burgundy .poster .child.right{animation:float-right 6.4s ease-in-out infinite}
+ html.motion-burgundy .poster .ribbon{animation:ribbon-sway 7s ease-in-out infinite;transform-origin:50% 10%}
+ html.motion-burgundy .poster .ribbon.right{animation:ribbon-sway-right 7.5s ease-in-out infinite}
+ html.motion-botanical .sheet .sprig {animation:leafy-entrance 1.8s ease both}
+ html.motion-editorial .front .polaroid{animation:editor-polaroid-a 7.5s ease-in-out infinite}
+ html.motion-editorial .front .polaroid.second{animation:editor-polaroid-b 8s ease-in-out infinite}
+ html.motion-vintage .paper .corner{animation:golden-flourish 2.1s ease both}
+ .rsvp-curtain:not([hidden]) .rsvp-dialog{animation:rsvp-entrance .32s cubic-bezier(.2,.7,.2,1) both}
+ @keyframes float-left {0%,100%{transform:rotate(-11deg) translateY(0)}50%{transform:rotate(-10deg) translateY(-8px)}}
+ @keyframes float-right {0%,100%{transform:rotate(10deg) translateY(0)}50%{transform:rotate(9deg) translateY(-10px)}}
+ @keyframes ribbon-sway {0%,100%{transform:rotate(-9deg)}50%{transform:rotate(-4deg)}}
+ @keyframes ribbon-sway-right {0%,100%{transform:scaleX(-1) rotate(-9deg)}50%{transform:scaleX(-1) rotate(-4deg)}}
+ @keyframes leafy-entrance {from{opacity:0;transform:translateY(18px)}to{opacity:.7;transform:translateY(0)}}
+ @keyframes editor-polaroid-a {0%,100%{transform:rotate(-10deg) translateY(0)}50%{transform:rotate(-8deg) translateY(-6px)}}
+ @keyframes editor-polaroid-b {0%,100%{transform:rotate(10deg) translateY(0)}50%{transform:rotate(8deg) translateY(-8px)}}
+ @keyframes golden-flourish {from{opacity:0;filter:blur(7px)}to{opacity:.8;filter:blur(0)}}
+ @keyframes rsvp-entrance {from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+}
+@media (prefers-reduced-motion: reduce) {
+ html.wedding-motion .motion-section{opacity:1!important;transform:none!important}
+ html.wedding-motion *,html.wedding-motion *::before,html.wedding-motion *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
