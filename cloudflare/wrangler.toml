@@ -1,0 +1,12 @@
+name = "mattia-kirsten-rsvp"
+main = "worker.js"
+compatibility_date = "2026-11-03"
+
+[vars]
+ALLOWED_ORIGINS = "https://mattiaafanti.github.io,http://127.0.0.1:8000,http://localhost:8000"
+PUBLIC_SITE_URL = "https://mattiaafanti.github.io/Marriage/burgundy/"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mattia-kirsten-wedding"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
