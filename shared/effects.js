@@ -1,7 +1,7 @@
 /* Page-by-page entrance effects based on four different video styles. */
 (() => {
   'use strict';
-  const slug = (location.pathname.split('/').filter(Boolean).at(-1)||'');
+  const parts=location.pathname.split('/').filter(Boolean); const last=parts.at(-1)||''; const slug=last==='index.html'?(parts.at(-2)||''):last;
   const theme = ['burgundy','botanical','editorial','vintage'].includes(slug)?slug:null;
   if(!theme)return;
   document.documentElement.classList.add('motion-'+theme);
