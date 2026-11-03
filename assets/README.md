@@ -1,17 +1,15 @@
-# Media assets for the four invitation concepts
+# Original photographs already in the repository
 
-Three full-resolution images are intentionally referenced as **separate original files**, not recompressed and not embedded as tiny base64 thumbnails.
+The user has uploaded the three original images to the **root** of this repository. Do not resize, replace, convert, recompress, or use the prior low-resolution base64 thumbnails.
 
-Upload the following filenames to the `assets/` directory through **Add file → Upload files** on GitHub:
+| Image | Exact GitHub filename | HTML reference from each theme directory | Original dimensions |
+|---|---|---|---|
+| Kirsten, childhood | `ker piccola.jpeg` | `../ker%20piccola.jpeg` | 960 × 1280 |
+| Mattia, childhood | `matti piccolo.jpeg` | `../matti%20piccolo.jpeg` | 1200 × 1600 |
+| Reception restaurant | `ristorante.jpg` | `../ristorante.jpg` | The uploaded original |
 
-- `mattia-original.png` — childhood portrait of Mattia, original 1200 × 1600 pixels
-- `kirsten-original.png` — childhood graduation portrait of Kirsten, original 960 × 1280 pixels
-- `restaurant-original.png` — the provided reception photograph of Bahay Baluk-Baluk Restaurant (use the original file, no optimization)
+The four HTML files directly reference these paths. CSS transforms provide a small face-focused visual zoom; they do not modify any source-image pixels or file resolution.
 
-The four HTML templates already reference these exact paths. **Until these three assets exist in the repository, image slots will be blank or broken on GitHub Pages.**
+Reception name: **Bahay Baluk-Baluk Restaurant**, Villas by Eco Hotels, Lumang Lipa, Mataasnakahoy, Batangas, Philippines.
 
-The soundtrack is already in the repository root under `ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3`. Every template loads this exact path and tries audible autoplay at 18% volume. If the browser blocks audible autoplay, playback starts on the first allowed user gesture. No music mute/unmute button is rendered.
-
-Visual face zoom is CSS only (`object-fit: cover; transform:scale(1.1...)`). No original image bytes are changed.
-
-The shared RSVP code is in `shared/wedding.js`. Guest names, invitation HMAC tokens, admin secrets and all RSVP data belong on Cloudflare Workers/D1, never in this public repository.
+The audio is the existing root-level `ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3`. All templates refer to it via `shared/config.js`. The player attempts to start automatically with 18% volume and has no mute control. Browsers can block audible autoplay until interaction.

@@ -15,11 +15,17 @@ This repository contains four **independently designed sites**, each based on a 
 
 Use GitHub Pages with branch `main` and `/ (root)` as the publishing source. Home: `https://mattiaafanti.github.io/Marriage/`.
 
-## Assets — important
+## Image and soundtrack assets
 
-**Photos have not yet been uploaded to the repository.** All four site designs point to the original full-resolution files under `assets/`. Follow the instructions in [assets/README.md](./assets/README.md). Do not use low-quality `shared/photos.js`; the previous embedded thumbnail implementation has been removed.
+Original images were uploaded directly to the repository root:
 
-The MP3 `ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3` is **already stored at the repository root**. The shared script attempts playback at 18% volume with no mute toggle. Browsers that forbid audible autoplay require the user's first gesture.
+- [Kirsten](./ker%20piccola.jpeg) — `ker piccola.jpeg` (960 × 1280)
+- [Mattia](./matti%20piccolo.jpeg) — `matti piccolo.jpeg` (1200 × 1600)
+- [Reception](./ristorante.jpg) — `ristorante.jpg`
+
+The HTML uses these three images at their native source quality. Framing and face zoom are provided only through CSS. Details: [assets/README.md](./assets/README.md).
+
+The existing root-level MP3 `ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3` is linked in `shared/config.js`. All four templates attempt to play it at 18% volume, with no mute button. Browsers may require a user gesture before audible playback.
 
 ## RSVP and Cloudflare
 
