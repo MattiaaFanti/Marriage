@@ -17,14 +17,14 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Cormorant+Garamond:wght@400;500;600;700&family=Great+Vibes&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./rsvp.css">
 <style>
-:root{--burgundy:#650016;--wine:#640f24;--cream:#fff3ea;--gold:#cba37b}
+:root{--burgundy:#6e001b;--wine:#6e001b;--cream:#fff3ea;--gold:#cba37b}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth;scroll-padding-top:0}
 body{margin:0;background:var(--burgundy);color:var(--cream);font-family:'DM Sans',sans-serif}
 button,input{font:inherit}
 button{cursor:pointer}
 a{color:inherit}
-.splash{position:fixed;z-index:999;inset:0;display:grid;place-items:center;background:#580e22;color:#f8e9db;text-align:center;opacity:1;visibility:visible;transition:opacity .76s ease,visibility .76s ease}
+.splash{position:fixed;z-index:999;inset:0;display:grid;place-items:center;background:var(--burgundy);color:#f8e9db;text-align:center;opacity:1;visibility:visible;transition:opacity .76s ease,visibility .76s ease}
 .splash.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
 .splash-inner{padding:24px}
 .splash-mark{font:400 clamp(83px,12vw,135px)/.85 'Cormorant Garamond',serif;letter-spacing:-.075em}
@@ -61,7 +61,7 @@ a{color:inherit}
 .sponsors{display:grid;grid-template-columns:1fr 1fr;gap:0 28px;max-width:790px;margin:30px auto}
 .sponsors p{font:23px 'Cormorant Garamond',serif;border-bottom:1px solid #c9a7a9;padding:13px 4px;margin:0}
 .sponsors small{display:block;font:11px 'DM Sans',sans-serif;color:#80576a}
-.site-footer{padding:42px 15px;text-align:center;background:#590f24;color:#e8c8b5;font-size:11px;letter-spacing:.12em}
+.site-footer{padding:42px 15px;text-align:center;background:var(--burgundy);color:#e8c8b5;font-size:11px;letter-spacing:.12em}
 @media(max-width:600px){.info-section{padding:80px 20px}.sponsors{grid-template-columns:1fr}.palette>div{height:80px}.cover-search{box-shadow:0 .7cqw 1cqw #3d001842}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.splash{transition:none}}
 </style>
@@ -99,6 +99,53 @@ a{color:inherit}
  window.addEventListener('pageshow',()=>window.scrollTo(0,0));
  const splash=document.getElementById('opening');
  window.setTimeout(()=>{splash.classList.add('is-hidden');splash.setAttribute('aria-hidden','true');window.scrollTo(0,0)},2500);
+})();
+</script>
+<script>
+/* Keep the burgundy surrounding the invitation the same color as slide1.webp.
+   The average border tone is read from the actual picture after it loads.
+   No pixels in the image or in the interactive RSVP form are modified. */
+(function(){
+  const cover=document.querySelector(".cover-art");
+  if(!cover)return;
+  function matchSlideBackground(){
+    if(!cover.naturalWidth||!cover.naturalHeight)return;
+    try{
+      const canvas=document.createElement("canvas");
+      canvas.width=2;
+      canvas.height=80;
+      const ctx=canvas.getContext("2d",{willReadFrequently:true});
+      if(!ctx)return;
+      const sampleWidth=Math.min(4,cover.naturalWidth);
+      ctx.drawImage(cover,0,0,sampleWidth,cover.naturalHeight,0,0,1,80);
+      ctx.drawImage(cover,cover.naturalWidth-sampleWidth,0,sampleWidth,cover.naturalHeight,1,0,1,80);
+      const data=ctx.getImageData(0,0,2,80).data;
+      const samples=[[],[],[]];
+      for(let y=6;y<=48;y++){
+        for(let x=0;x<2;x++){
+          const j=(y*2+x)*4;
+          const red=data[j],green=data[j+1],blue=data[j+2];
+          if(data[j+3]>240&&red>40&&red>green*1.5&&red>blue*1.25&&green<85&&blue<95){
+            samples[0].push(red);samples[1].push(green);samples[2].push(blue);
+          }
+        }
+      }
+      if(samples[0].length<12)return;
+      const median=channel=>{
+        channel.sort((a,b)=>a-b);
+        const mid=Math.floor(channel.length/2);
+        return channel.length%2?channel[mid]:Math.round((channel[mid-1]+channel[mid])/2);
+      };
+      const [r,g,b]=samples.map(median);
+      const color="#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join("");
+      document.documentElement.style.setProperty("--burgundy",color);
+      document.documentElement.style.setProperty("--wine",color);
+    }catch(_error){
+      /* The CSS fallback remains visible if pixel sampling is unavailable. */
+    }
+  }
+  if(cover.complete&&cover.naturalWidth)matchSlideBackground();
+  else cover.addEventListener("load",matchSlideBackground,{once:true});
 })();
 </script>
 </body>
