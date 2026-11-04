@@ -12,14 +12,82 @@
 .preflight-card p{font:14px/1.75 "DM Sans",sans-serif;margin:12px auto}
 .preflight-card button{display:block;width:100%;background:#5e1d31;border:0;color:white;border-radius:9px;padding:14px 18px;font:600 14px "DM Sans",sans-serif;margin-top:26px}
 @media(max-width:600px){.preflight-card{padding:29px 22px}}
+
+/* Burgundy opening poster – one fixed composition on every device.
+   Container-query units preserve identical proportions rather than allowing
+   desktop/tablet/mobile breakpoints to rearrange the illustration. */
+html{scroll-padding-top:0}
+body{background:#4c101d}
+.poster-viewport{min-height:100svh;width:100%;display:flex;justify-content:center;align-items:flex-start;overflow:hidden;background:#4e1421}
+.burgundy-stage{
+ position:relative;isolation:isolate;flex:0 0 auto;
+ width:min(100vw, calc(100svh * 525 / 970), 700px);
+ aspect-ratio:525/970;
+ overflow:hidden;background:radial-gradient(ellipse 95% 92% at 50% 50%,#611e2d 0%,#51151f 65%,#49101b 100%);
+ color:#f8e9db;container-type:inline-size;
+ box-shadow:0 14px 52px rgba(18,2,7,.26)
+}
+.burgundy-stage .stage-title{position:absolute;z-index:5;left:13%;width:74%;top:1.4cqw;font-size:3.1cqw;line-height:1.4;letter-spacing:.22em;font-family:'DM Sans',sans-serif;font-weight:700;text-align:center;transform:rotate(-4deg)}
+.burgundy-stage .stage-writing{position:absolute;z-index:5;left:10%;width:80%;top:7.8cqw;font-size:14.2cqw;line-height:.96;letter-spacing:-.05em;color:#ffece0;font-family:'Kaushan Script','Dancing Script',cursive;font-weight:400;text-align:center;transform:rotate(-4deg);text-shadow:1px 2px 2px #36101833}
+.burgundy-stage .stage-tagline{position:absolute;z-index:5;top:47cqw;left:5%;width:90%;text-align:center;font-size:3.2cqw;line-height:1.4;color:#f9e9e5}
+.burgundy-stage .ribbon-ornament{position:absolute;top:-1.7cqw;left:6%;width:16.5%;height:auto;color:#82885b;opacity:.9;transform:rotate(-7deg);z-index:4}
+.burgundy-stage .ribbon-ornament.right{left:auto;right:6%;transform:scaleX(-1) rotate(-7deg)}
+.burgundy-stage .tiny-bursts{position:absolute;top:14.6cqw;left:20.5%;font-size:7cqw;color:#c89d67;line-height:1;transform:rotate(-22deg)}
+.burgundy-stage .tiny-bursts.right{left:auto;right:20.5%;transform:rotate(22deg)}
+.burgundy-stage .poster-search{position:absolute;z-index:10;left:5%;top:63.5cqw;width:90%;height:10.7cqw;display:flex;margin:0;padding:0.8cqw;border-radius:2.2cqw;background:#f5e9e5;box-shadow:0 0 0 .55cqw #782335,0 1cqw 2cqw #220a1333}
+.burgundy-stage .poster-search input{flex:1;min-width:0;width:0;margin:0;padding:0 3cqw;border:0;outline:0;background:transparent;color:#4b2931;font:3.25cqw 'DM Sans',sans-serif}
+.burgundy-stage .poster-search input::placeholder{color:#706163;opacity:1}
+.burgundy-stage .poster-search button{flex:0 0 9.3cqw;height:100%;border:0;border-radius:1.4cqw;background:#5b1d2d;color:white;font:6cqw 'Cormorant Garamond',serif;display:grid;place-items:center}
+.burgundy-stage .poster-search input:focus-visible{outline:.5cqw solid #b37a80;outline-offset:-.3cqw}
+/* main.png is the original pastel groom/bride drawing. It is never recompressed.
+   Only the two figure regions are displayed; screenshot playback controls,
+   reference couple names and non-interactive search bar are excluded. */
+.art-layers{position:absolute;inset:0;z-index:2;pointer-events:none}
+.art-layers .art-cut{position:absolute;left:0;top:10cqw;width:100%;height:154.286cqw;object-fit:fill;display:block;max-width:none;-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 94%,transparent 100%);mask-image:linear-gradient(to bottom,#000 0%,#000 94%,transparent 100%)}
+.art-layers .art-cut.left{clip-path:polygon(0 50%,38% 50%,40% 100%,0 100%)}
+.art-layers .art-cut.right{clip-path:polygon(59% 63%,100% 63%,100% 100%,59% 100%)}
+/* The gold frames remain visible. The actual HD childhood images are positioned
+   within the original rectangular portrait openings and zoomed via CSS only. */
+.art-layers .frame-face{position:absolute;display:block;object-fit:cover;max-width:none;border:0;box-shadow:none;filter:none;backface-visibility:hidden}
+.art-layers .frame-face.mattia{left:8.85cqw;top:96.5cqw;width:19.1cqw;height:20.3cqw;object-position:50% 31%;transform:rotate(12deg) scale(1.035);clip-path:inset(1% 2% 2% 2%)}
+.art-layers .frame-face.kirsten{left:70.9cqw;top:119.8cqw;width:18.6cqw;height:19.8cqw;object-position:50% 32%;transform:rotate(-13deg) scale(1.035);clip-path:inset(1% 2% 2% 2%)}
+.stage-emblem{position:absolute;z-index:3;top:132.7cqw;left:38%;width:24%;text-align:center;color:#fff0e4;font:7cqw/.95 'Cormorant Garamond',serif;text-shadow:0 2px 4px #2d0e19}
+.stage-emblem .emblem-small{font-size:3.8cqw;display:inline-block;transform:translateY(-1cqw)}
+.stage-envelope{position:absolute;z-index:3;left:42%;width:16%;top:147cqw;text-align:center;font:8cqw/.9 'Cormorant Garamond',serif;color:#edddce}
+.stage-envelope small{display:block;font:1.7cqw 'DM Sans',sans-serif;letter-spacing:.08em;margin-top:.3cqw}
+.poster-scripture{position:absolute;z-index:6;left:5%;top:164.5cqw;width:90%;text-align:center;color:#f9e6da;padding:0 1cqw}
+.poster-scripture::before{content:'❧ ───── ❧';display:block;font:3cqw/1 'Cormorant Garamond',serif;letter-spacing:.3em;color:#d5ad89;margin-bottom:.8cqw}
+.poster-scripture blockquote{padding:0;margin:0;font:italic 5.2cqw/1.08 'Cormorant Garamond',serif;text-shadow:0 1px 2px #44101e}
+.poster-scripture cite{display:block;margin:1.5cqw 0 0;font:600 2.15cqw/1.2 'DM Sans',sans-serif;letter-spacing:.23em;color:#e5c5b0;font-style:normal}
+.stage-subdate{position:absolute;left:6%;width:88%;top:180.7cqw;z-index:6;color:#d6b7a6;font:500 2.1cqw 'DM Sans',sans-serif;letter-spacing:.17em;text-align:center}
+.stage-shade{position:absolute;z-index:1;inset:0;background:radial-gradient(circle at center,#fff1 0%,transparent 70%);pointer-events:none}
+@media(max-width:600px){.poster-viewport{min-height:100svh}}
+@media(prefers-reduced-motion:reduce){.burgundy-stage *, .burgundy-stage *::before,.burgundy-stage *::after{animation:none!important;transition:none!important}}
+
 </style><script defer src="../shared/config.js"></script><script defer src="../shared/wedding.js"></script><script defer src="../shared/effects.js"></script></head><body>
 <div class="splash" id="splash" aria-label="Opening title"><div class="intro-emblem">K<span>&</span>M</div><div class="intro-names">KIRSTEN · MATTIA</div><div class="intro-rule"></div><div class="intro-date">07 · 12 · 2026</div></div>
-<div id="preflight" class="preflight" hidden><div class="preflight-card" role="dialog" aria-modal="true" aria-labelledby="preflightTitle"><div class="stamp">✧</div><h2 id="preflightTitle">BEFORE YOU RSVP</h2><p>A little note before you begin. Find your name using the search bar on our invitation.</p><p>Confirm only the seats reserved for your invitation. You can return to your personal link to update your reply.</p><button type="button" id="preflightOkay">I understand</button></div></div><main>
-<section class="poster" id="top"><svg class="ribbon" viewBox="0 0 150 175" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g stroke="#78814e" stroke-width="5" stroke-linejoin="round"><path d="M78 48C33-4 5 13 35 54C52 70 66 60 78 48ZM78 48C117-2 148 6 120 48C104 66 94 56 78 48Z"/><path d="M75 52C73 98 54 140 41 168C58 147 82 115 86 59M83 56C101 97 118 141 131 159C114 147 88 106 76 61"/><path d="M69 43C81 36 91 43 91 54C88 68 72 67 68 55C64 50 66 46 69 43Z" fill="#77804c"/></g></svg><svg class="ribbon right" viewBox="0 0 150 175" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g stroke="#78814e" stroke-width="5" stroke-linejoin="round"><path d="M78 48C33-4 5 13 35 54C52 70 66 60 78 48ZM78 48C117-2 148 6 120 48C104 66 94 56 78 48Z"/><path d="M75 52C73 98 54 140 41 168C58 147 82 115 86 59M83 56C101 97 118 141 131 159C114 147 88 106 76 61"/><path d="M69 43C81 36 91 43 91 54C88 68 72 67 68 55C64 50 66 46 69 43Z" fill="#77804c"/></g></svg>
-<header><p class="topline">THESE KIDS ARE</p><h1>getting<br>married</h1><p class="tagline">and they can’t wait<br>to celebrate with you!</p></header>
-<form class="search-form" data-rsvp-search><input type="text" aria-label="Search your name to RSVP" placeholder="Search your name to RSVP" required><button aria-label="Search invitation">⌕</button></form>
-<div class="figures"><figure class="child left"><div class="figure"><div class="figure-photo"><img src="../matti%20piccolo.jpeg" alt="Mattia as a child — original resolution"></div></div><figcaption>little Mattia</figcaption></figure><span class="monogram">K & M</span><span class="tiny-envelope"><i>✉</i>OUR E-INVITE</span><figure class="child right"><div class="figure"><div class="figure-photo"><img src="../ker%20piccola.jpeg" alt="Kirsten as a child — original resolution"></div></div><figcaption>little Kirsten</figcaption></figure></div>
-<div class="bottom-date">MONDAY · 07 DECEMBER 2026</div></section>
+<main>
+<section class="poster-viewport" id="top" aria-label="Our wedding invitation">
+<div class="burgundy-stage">
+<div class="stage-shade" aria-hidden="true"></div>
+<svg class="ribbon-ornament" viewBox="0 0 150 175" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g stroke="currentColor" stroke-width="5" stroke-linejoin="round"><path d="M78 48C33-4 5 13 35 54C52 70 66 60 78 48ZM78 48C117-2 148 6 120 48C104 66 94 56 78 48Z"/><path d="M75 52C73 98 54 140 41 168C58 147 82 115 86 59M83 56C101 97 118 141 131 159C114 147 88 106 76 61"/><path d="M69 43C81 36 91 43 91 54C88 68 72 67 68 55C64 50 66 46 69 43Z" fill="currentColor"/></g></svg><svg class="ribbon-ornament right" viewBox="0 0 150 175" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g stroke="currentColor" stroke-width="5" stroke-linejoin="round"><path d="M78 48C33-4 5 13 35 54C52 70 66 60 78 48ZM78 48C117-2 148 6 120 48C104 66 94 56 78 48Z"/><path d="M75 52C73 98 54 140 41 168C58 147 82 115 86 59M83 56C101 97 118 141 131 159C114 147 88 106 76 61"/><path d="M69 43C81 36 91 43 91 54C88 68 72 67 68 55C64 50 66 46 69 43Z" fill="currentColor"/></g></svg>
+<span class="tiny-bursts" aria-hidden="true">′′</span><span class="tiny-bursts right" aria-hidden="true">′′</span>
+<p class="stage-title">THESE KIDS ARE</p>
+<h1 class="stage-writing">getting<br>married</h1>
+<p class="stage-tagline">and they can’t wait<br>to celebrate with you!</p>
+<form class="poster-search" data-rsvp-search><input name="guest" type="text" autocomplete="name" required placeholder="Search your name to RSVP" aria-label="Search your name to RSVP"><button type="submit" aria-label="Search invitation">⌕</button></form>
+<div class="art-layers" aria-label="Pastel groom and bride holding childhood portraits">
+<img class="art-cut left" src="../main.png" alt="" fetchpriority="high" decoding="async">
+<img class="art-cut right" src="../main.png" alt="" fetchpriority="high" decoding="async">
+<img class="frame-face mattia" src="../matti%20piccolo.jpeg" alt="Mattia as a child" fetchpriority="high" decoding="async">
+<img class="frame-face kirsten" src="../ker%20piccola.jpeg" alt="Kirsten as a child" fetchpriority="high" decoding="async">
+</div>
+<div class="stage-emblem" aria-hidden="true">K <span class="emblem-small">&</span> M</div>
+<div class="stage-envelope" aria-hidden="true">✉<small>OUR E-INVITE</small></div>
+<div class="poster-scripture"><blockquote>“I have found the one whom my soul loves”</blockquote><cite>SONG OF SOLOMON 3:4</cite></div>
+<p class="stage-subdate">MONDAY · 07 DECEMBER 2026</p>
+</div>
+</section>
 <section class="section"><div class="inner"><p class="smallcap">WITH OUR FAMILIES</p><h2>We’re getting married</h2><p>From childhood stories to our forever chapter. With grateful hearts, we invite you to celebrate the wedding of</p><div class="dateblock">Kirsten & Mattia</div><p>Monday, 7 December 2026</p><p>We can’t wait to share this day with you.</p></div></section>
 <section class="section"><div class="inner"><p class="smallcap">THE RECEPTION</p><h2>Bahay Baluk-Baluk Restaurant</h2><img loading="lazy" decoding="async" class="venue-img" src="../ristorante.jpg" alt="Wedding reception restaurant terrace overlooking the lake and mountains"><p data-wedding-address>Villas by Eco Hotels, Lumang Lipa, Mataasnakahoy, Batangas, Philippines</p><p>Reception time and transport arrangements will be announced when confirmed.</p><a class="link" href="https://www.google.com/maps/place//data=!4m2!3m1!1s0x33bd6d880dbe4a37:0x81495d30b81ba6de" rel="noopener noreferrer" target="_blank">View on Google Maps</a></div></section>
 <section class="section"><div class="inner"><p class="smallcap">A LITTLE NOTE FROM US</p><h2>Celebrate in Caramel</h2><p>Please dress in elegant warm shades of light brown, caramel and camel. Plain, solid colors are preferred.</p><div class="dress-swatches"><div style="background:#e3ceb0"><span>Sand</span></div><div style="background:#d2b18a"><span>Caramel</span></div><div style="background:#b9936c"><span>Camel</span></div><div style="background:#9d7555"><span>Toffee</span></div></div><p>Please avoid bold patterns or bright neon colors.</p></div></section>
@@ -27,4 +95,4 @@
 <section class="section"><div class="inner"><p class="smallcap">THE PEOPLE WHO GUIDE US</p><h2>Principal Sponsors</h2><div class="sponsor-entries"><p>Jef & Judith Sevilleno</p><p>Donald & Jessica Agbay</p><p>Jason & Joan Quizon</p><p>Madison & Angel Dimaculangan</p><p>Entiquio & Lyn Briones</p><p>Renato & Geraldine San Pedro</p><p>Mario Buccola & Rita Morisco <small>(confirmation pending)</small></p></div></div></section>
 <section class="section"><div class="inner"><p class="smallcap">ONE LAST THING</p><h2>Will you be there?</h2><p>Let us know if we’ll have the pleasure of celebrating with you.</p><button class="link" type="button" data-open-rsvp>Confirm your attendance</button></div></section>
 </main><nav class="return-links"><a href="../">ALL FOUR TEMPLATES</a><a href="../botanical/">BOTANICAL</a><a href="../editorial/">EDITORIAL</a><a href="../vintage/">VINTAGE</a></nav>
-<script>(function(){const splash=document.getElementById('splash'),note=document.getElementById('preflight'),ok=document.getElementById('preflightOkay');setTimeout(function(){splash.classList.add('gone');window.scrollTo(0,0);note.hidden=false;ok.focus({preventScroll:true})},2500);ok.addEventListener('click',function(){note.hidden=true;document.querySelector('.search-form input')?.focus({preventScroll:true})})})();</script></body></html>
+<script>(function(){if('scrollRestoration' in history)history.scrollRestoration='manual';window.scrollTo(0,0);window.addEventListener('pageshow',()=>window.scrollTo(0,0));const splash=document.getElementById('splash');setTimeout(function(){splash.classList.add('gone');splash.setAttribute('aria-hidden','true');window.scrollTo(0,0)},2500)})();</script></body></html>
