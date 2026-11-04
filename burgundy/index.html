@@ -17,13 +17,13 @@
    Container-query units preserve identical proportions rather than allowing
    desktop/tablet/mobile breakpoints to rearrange the illustration. */
 html{scroll-padding-top:0}
-body{background:#4c101d}
-.poster-viewport{min-height:100svh;width:100%;display:flex;justify-content:center;align-items:flex-start;overflow:hidden;background:#4e1421}
+body{background:#541622}
+.poster-viewport{min-height:100svh;height:100svh;width:100%;display:flex;justify-content:center;align-items:flex-start;overflow:hidden;background:#541622}
 .burgundy-stage{
  position:relative;isolation:isolate;flex:0 0 auto;
  width:min(100vw, calc(100svh * 525 / 970), 700px);
  aspect-ratio:525/970;
- overflow:hidden;background:radial-gradient(ellipse 95% 92% at 50% 50%,#611e2d 0%,#51151f 65%,#49101b 100%);
+ overflow:hidden;background:#541622;
  color:#f8e9db;container-type:inline-size;
  box-shadow:0 14px 52px rgba(18,2,7,.26)
 }
@@ -39,29 +39,25 @@ body{background:#4c101d}
 .burgundy-stage .poster-search input::placeholder{color:#706163;opacity:1}
 .burgundy-stage .poster-search button{flex:0 0 9.3cqw;height:100%;border:0;border-radius:1.4cqw;background:#5b1d2d;color:white;font:6cqw 'Cormorant Garamond',serif;display:grid;place-items:center}
 .burgundy-stage .poster-search input:focus-visible{outline:.5cqw solid #b37a80;outline-offset:-.3cqw}
-/* main.png is the original pastel groom/bride drawing. It is never recompressed.
-   Only the two figure regions are displayed; screenshot playback controls,
-   reference couple names and non-interactive search bar are excluded. */
+/* main.png is clipped to the actual pastel silhouettes, so none of its burgundy
+   screenshot rectangle remains. The complete original file stays unchanged. */
 .art-layers{position:absolute;inset:0;z-index:2;pointer-events:none}
-.art-layers .art-cut{position:absolute;left:0;top:10cqw;width:100%;height:154.286cqw;object-fit:fill;display:block;max-width:none;-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 94%,transparent 100%);mask-image:linear-gradient(to bottom,#000 0%,#000 94%,transparent 100%)}
-.art-layers .art-cut.left{clip-path:polygon(10.6% 51.1%,34.1% 54.2%,31.8% 66.8%,34.3% 69.5%,28.6% 73.3%,33% 77.5%,31.2% 84.2%,28% 90.8%,25.5% 96.6%,25.7% 100%,0 100%,0 70.6%,3.4% 68.6%,4.9% 65.7%,7.6% 64.3%,8.8% 58.7%);-webkit-mask-image:radial-gradient(ellipse 42% 46% at 19% 77%,#000 61%,transparent 95%);mask-image:radial-gradient(ellipse 42% 46% at 19% 77%,#000 61%,transparent 95%)}
-.art-layers .art-cut.right{clip-path:polygon(89% 64.7%,93.6% 79.1%,100% 85%,100% 100%,63.8% 100%,62.9% 91%,64.2% 86.5%,65.3% 81.6%,62.3% 74%,62.2% 71.6%,63.6% 69.6%);-webkit-mask-image:radial-gradient(ellipse 40% 38% at 81% 80%,#000 61%,transparent 96%);mask-image:radial-gradient(ellipse 40% 38% at 81% 80%,#000 61%,transparent 96%)}
-/* Original JPEGs stay untouched. Face-focused zoom uses nested CSS image transforms. */
-.art-layers .frame-face{position:absolute;display:block;overflow:hidden;max-width:none;border:0;box-shadow:none;filter:none;backface-visibility:hidden;background:#987f66}
-.art-layers .frame-face img{width:100%;height:100%;display:block;object-fit:cover;max-width:none;transform:scale(1.22);transform-origin:center 40%;object-position:center 29%}
+.art-layers .figures-svg{position:absolute;top:10cqw;left:0;width:100%;height:154.286cqw;overflow:visible;display:block;pointer-events:none}
+.art-layers .frame-face{position:absolute;display:block;overflow:hidden;border:0;box-shadow:none;background:#6d453d;backface-visibility:hidden}
+.art-layers .frame-face img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 29%;transform:scale(1.16);transform-origin:center 41%;max-width:none}
 .art-layers .frame-face.mattia{left:8.85cqw;top:96.5cqw;width:19.1cqw;height:20.3cqw;transform:rotate(12deg) scale(1.035);clip-path:inset(1% 2% 2% 2%)}
 .art-layers .frame-face.kirsten{left:70.9cqw;top:119.8cqw;width:18.6cqw;height:19.8cqw;transform:rotate(-13deg) scale(1.035);clip-path:inset(1% 2% 2% 2%)}
-.art-layers .frame-face.kirsten img{object-position:center 35%;transform:scale(1.19);transform-origin:center 35%}
+.art-layers .frame-face.kirsten img{object-position:center 33%;transform:scale(1.14);transform-origin:center 39%}
 .stage-emblem{position:absolute;z-index:3;top:132.7cqw;left:38%;width:24%;text-align:center;color:#fff0e4;font:7cqw/.95 'Cormorant Garamond',serif;text-shadow:0 2px 4px #2d0e19}
 .stage-emblem .emblem-small{font-size:3.8cqw;display:inline-block;transform:translateY(-1cqw)}
 .stage-envelope{position:absolute;z-index:3;left:42%;width:16%;top:147cqw;text-align:center;font:8cqw/.9 'Cormorant Garamond',serif;color:#edddce}
 .stage-envelope small{display:block;font:1.7cqw 'DM Sans',sans-serif;letter-spacing:.08em;margin-top:.3cqw}
-.poster-scripture{position:absolute;z-index:6;left:5%;top:164.5cqw;width:90%;text-align:center;color:#f9e6da;padding:0 1cqw}
+.poster-scripture{position:absolute;z-index:6;left:3%;top:162cqw;width:94%;text-align:center;color:#f9e6da;padding:0 1cqw}
 .poster-scripture::before{content:'❧ ───── ❧';display:block;font:3cqw/1 'Cormorant Garamond',serif;letter-spacing:.3em;color:#d5ad89;margin-bottom:.8cqw}
-.poster-scripture blockquote{padding:0;margin:0;font:italic 5.2cqw/1.08 'Cormorant Garamond',serif;text-shadow:0 1px 2px #44101e}
-.poster-scripture cite{display:block;margin:1.5cqw 0 0;font:600 2.15cqw/1.2 'DM Sans',sans-serif;letter-spacing:.23em;color:#e5c5b0;font-style:normal}
-.stage-subdate{position:absolute;left:6%;width:88%;top:180.7cqw;z-index:6;color:#d6b7a6;font:500 2.1cqw 'DM Sans',sans-serif;letter-spacing:.17em;text-align:center}
-.stage-shade{position:absolute;z-index:1;inset:0;background:radial-gradient(circle at center,#fff1 0%,transparent 70%);pointer-events:none}
+.poster-scripture blockquote{padding:0;margin:0;font:italic 4.65cqw/1.08 'Cormorant Garamond',serif;text-shadow:0 1px 2px #44101e}.poster-scripture blockquote span{display:block}
+.poster-scripture cite{display:block;margin:1.3cqw 0 0;font:600 2.15cqw/1.2 'DM Sans',sans-serif;letter-spacing:.23em;color:#e5c5b0;font-style:normal}
+
+.stage-shade{position:absolute;z-index:1;inset:0;background:transparent;pointer-events:none}
 @media(max-width:600px){.poster-viewport{min-height:100svh}}
 @media(prefers-reduced-motion:reduce){.burgundy-stage *, .burgundy-stage *::before,.burgundy-stage *::after{animation:none!important;transition:none!important}}
 
@@ -77,16 +73,15 @@ body{background:#4c101d}
 <h1 class="stage-writing">getting<br>married</h1>
 <p class="stage-tagline">and they can’t wait<br>to celebrate with you!</p>
 <form class="poster-search" data-rsvp-search><input name="guest" type="text" autocomplete="name" required placeholder="Search your name to RSVP" aria-label="Search your name to RSVP"><button type="submit" aria-label="Search invitation">⌕</button></form>
-<div class="art-layers" aria-label="Pastel groom and bride holding childhood portraits">
-<img class="art-cut left" src="../main.png" alt="" fetchpriority="high" decoding="async">
-<img class="art-cut right" src="../main.png" alt="" fetchpriority="high" decoding="async">
-<div class="frame-face mattia"><img src="../matti%20piccolo.jpeg" alt="Mattia as a child" fetchpriority="high" decoding="async"></div>
-<div class="frame-face kirsten"><img src="../ker%20piccola.jpeg" alt="Kirsten as a child" fetchpriority="high" decoding="async"></div>
+<div class="art-layers" aria-label="Pastel wedding couple holding childhood portraits">
+<svg class="figures-svg" viewBox="0 0 525 810" preserveAspectRatio="none" aria-hidden="true" focusable="false"><defs><clipPath id="wedding-figure-clip" clipPathUnits="userSpaceOnUse"><path d="M178,443 L122,431 L110,430 L103,427 L79,424 L57,418 L43,417 L28,496 L26,498 L22,498 L12,507 L0,507 L0,588 L9,595 L0,605 L0,773 L2,772 L3,775 L11,776 L17,775 L20,778 L20,782 L17,785 L12,785 L10,783 L10,778 L8,778 L7,785 L0,784 L0,809 L65,809 L65,785 L80,756 L104,734 L112,734 L122,728 L135,715 L140,706 L141,690 L149,657 L148,634 L151,623 L149,625 L147,623 L149,609 L164,575 L160,554 L154,549 L156,547 L163,511 L168,495 L171,475 L179,445 Z"/><path d="M471,534 L433,543 L426,542 L366,556 L346,567 L345,576 L347,580 L348,593 L363,663 L354,670 L354,676 L350,688 L351,694 L359,704 L356,704 L347,759 L342,779 L341,795 L342,803 L345,805 L344,809 L524,809 L524,627 L520,627 L520,650 L518,651 L497,622 L489,613 L488,614 L485,611 L476,558 L473,552 Z"/></clipPath></defs><image href="../main.png" x="0" y="0" width="525" height="810" clip-path="url(#wedding-figure-clip)" preserveAspectRatio="none"/></svg>
+<div class="frame-face mattia"><img src="../matti%20hd.png" alt="Mattia as a child, high-resolution portrait" fetchpriority="high" decoding="async"></div>
+<div class="frame-face kirsten"><img src="../ker%20hd.png" alt="Kirsten as a child, high-resolution portrait" fetchpriority="high" decoding="async"></div>
 </div>
 <div class="stage-emblem" aria-hidden="true">K <span class="emblem-small">&</span> M</div>
 <div class="stage-envelope" aria-hidden="true">✉<small>OUR E-INVITE</small></div>
-<div class="poster-scripture"><blockquote>“I have found the one whom my soul loves”</blockquote><cite>SONG OF SOLOMON 3:4</cite></div>
-<p class="stage-subdate">MONDAY · 07 DECEMBER 2026</p>
+<div class="poster-scripture"><blockquote><span>“I have found the one</span><span>whom my soul loves”</span></blockquote><cite>SONG OF SOLOMON 3:4</cite></div>
+
 </div>
 </section>
 <section class="section"><div class="inner"><p class="smallcap">WITH OUR FAMILIES</p><h2>We’re getting married</h2><p>From childhood stories to our forever chapter. With grateful hearts, we invite you to celebrate the wedding of</p><div class="dateblock">Kirsten & Mattia</div><p>Monday, 7 December 2026</p><p>We can’t wait to share this day with you.</p></div></section>
