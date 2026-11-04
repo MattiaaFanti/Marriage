@@ -1,0 +1,37 @@
+name: Build HD Burgundy figures
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-burgundy-art.yml'
+      - 'scripts/build_burgundy_hd.py'
+      - 'main.png'
+      - 'ker hd.png'
+      - 'matti hd.png'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install image libraries
+        run: python -m pip install --quiet pillow numpy opencv-python-headless
+      - name: Render transparent HD figures with real portraits
+        run: python scripts/build_burgundy_hd.py
+      - name: Commit resulting 3150 x 4860 PNG
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add burgundy/figures-hd.png
+          if ! git diff --cached --quiet; then
+            git commit -m "Generate transparent HD wedding figures with real portraits"
+            git push
+          fi
