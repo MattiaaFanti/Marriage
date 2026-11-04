@@ -17,9 +17,9 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Cormorant+Garamond:wght@400;500;600;700&family=Great+Vibes&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./rsvp.css">
 <style>
-:root{--burgundy:#6e001b;--wine:#6e001b;--cream:#fff3ea;--gold:#cba37b}
+:root{--burgundy:#650016;--wine:#650016;--cream:#fff3ea;--gold:#cba37b}
 *{box-sizing:border-box}
-html{scroll-behavior:smooth;scroll-padding-top:0}
+html{scroll-behavior:smooth;scroll-padding-top:0;background:var(--burgundy)}
 body{margin:0;background:var(--burgundy);color:var(--cream);font-family:'DM Sans',sans-serif}
 button,input{font:inherit}
 button{cursor:pointer}
@@ -44,12 +44,12 @@ a{color:inherit}
 .cover-search button svg{display:block;width:49%;height:49%;min-height:17px;min-width:17px;stroke:currentColor;fill:none;stroke-width:2.7;stroke-linecap:round}
 .cover-search button:hover{background:#871835}
 .cover-search button:focus-visible{outline:2px solid #f8dfb9;outline-offset:-4px}
-.content{background:#f7eee7;color:#623244}
-.info-section{min-height:68svh;display:grid;place-items:center;text-align:center;padding:95px 22px;background:#fbf3ea}
-.info-section:nth-child(even){background:#f0dfd3}
+.content{background:var(--burgundy);color:var(--cream)}
+.info-section{min-height:68svh;display:grid;place-items:center;text-align:center;padding:95px 22px;background:var(--burgundy);color:var(--cream)}
+.info-section:nth-child(even){background:var(--burgundy)}
 .info-inner{max-width:850px;margin:auto;width:100%}
-.eyebrow{font:700 11px 'DM Sans',sans-serif;letter-spacing:.26em;text-transform:uppercase;color:#9b6676}
-.info-section h2{font:400 clamp(52px,8vw,93px)/1.04 'Great Vibes',cursive;color:#67263d;margin:25px 0}
+.eyebrow{font:700 11px 'DM Sans',sans-serif;letter-spacing:.26em;text-transform:uppercase;color:#e5beaa}
+.info-section h2{font:400 clamp(52px,8vw,93px)/1.04 'Great Vibes',cursive;color:var(--cream);margin:25px 0}
 .info-section p{max-width:640px;margin:19px auto;line-height:1.85}
 .big-date{font:600 clamp(29px,5vw,53px)/1.3 'Cormorant Garamond',serif;letter-spacing:.12em}
 .venue-photo{display:block;width:min(100%,740px);height:auto;max-height:460px;object-fit:cover;border:10px solid #fff9f3;margin:26px auto;box-shadow:0 10px 27px #60324426}
@@ -59,8 +59,8 @@ a{color:inherit}
 .palette>div{flex:1;max-width:120px;height:112px;display:grid;place-items:end center;border-radius:90px 90px 4px 4px}
 .palette span{margin-bottom:9px;font-size:11px;color:#3f2a22;background:#fff9f0a9;border-radius:12px;padding:3px 9px}
 .sponsors{display:grid;grid-template-columns:1fr 1fr;gap:0 28px;max-width:790px;margin:30px auto}
-.sponsors p{font:23px 'Cormorant Garamond',serif;border-bottom:1px solid #c9a7a9;padding:13px 4px;margin:0}
-.sponsors small{display:block;font:11px 'DM Sans',sans-serif;color:#80576a}
+.sponsors p{font:23px 'Cormorant Garamond',serif;border-bottom:1px solid #bd8a90;padding:13px 4px;margin:0}
+.sponsors small{display:block;font:11px 'DM Sans',sans-serif;color:#e5beaa}
 .site-footer{padding:42px 15px;text-align:center;background:var(--burgundy);color:#e8c8b5;font-size:11px;letter-spacing:.12em}
 @media(max-width:600px){.info-section{padding:80px 20px}.sponsors{grid-template-columns:1fr}.palette>div{height:80px}.cover-search{box-shadow:0 .7cqw 1cqw #3d001842}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.splash{transition:none}}
@@ -102,46 +102,49 @@ a{color:inherit}
 })();
 </script>
 <script>
-/* Keep the burgundy surrounding the invitation the same color as slide1.webp.
-   The average border tone is read from the actual picture after it loads.
-   No pixels in the image or in the interactive RSVP form are modified. */
+/* Sample the burgundy directly from the CURRENT cover artwork, then apply it
+   to every page surface through one CSS custom property. No image modification. */
 (function(){
   const cover=document.querySelector(".cover-art");
   if(!cover)return;
   function matchSlideBackground(){
     if(!cover.naturalWidth||!cover.naturalHeight)return;
     try{
+      const w=cover.naturalWidth,h=cover.naturalHeight;
       const canvas=document.createElement("canvas");
-      canvas.width=2;
-      canvas.height=80;
+      canvas.width=4;canvas.height=120;
       const ctx=canvas.getContext("2d",{willReadFrequently:true});
       if(!ctx)return;
-      const sampleWidth=Math.min(4,cover.naturalWidth);
-      ctx.drawImage(cover,0,0,sampleWidth,cover.naturalHeight,0,0,1,80);
-      ctx.drawImage(cover,cover.naturalWidth-sampleWidth,0,sampleWidth,cover.naturalHeight,1,0,1,80);
-      const data=ctx.getImageData(0,0,2,80).data;
-      const samples=[[],[],[]];
-      for(let y=6;y<=48;y++){
-        for(let x=0;x<2;x++){
-          const j=(y*2+x)*4;
-          const red=data[j],green=data[j+1],blue=data[j+2];
-          if(data[j+3]>240&&red>40&&red>green*1.5&&red>blue*1.25&&green<85&&blue<95){
-            samples[0].push(red);samples[1].push(green);samples[2].push(blue);
-          }
+      // Narrow strips along the actual outer edges. Avoid bows, figures, and text.
+      const strip=Math.max(1,Math.round(w*.007));
+      const startY=Math.floor(h*.23);
+      const srcH=Math.floor(h*.39);
+      const lastX=Math.max(0,w-strip);
+      ctx.drawImage(cover,0,startY,strip,srcH,0,0,2,120);
+      ctx.drawImage(cover,lastX,startY,strip,srcH,2,0,2,120);
+      const rgba=ctx.getImageData(0,0,4,120).data;
+      const pixels=[];
+      for(let i=0;i<rgba.length;i+=4){
+        const r=rgba[i],g=rgba[i+1],b=rgba[i+2],a=rgba[i+3];
+        if(a>=250 && r>35 && r>g*1.55 && r>b*1.25 && g<85 && b<95){
+          pixels.push([r,g,b]);
         }
       }
-      if(samples[0].length<12)return;
-      const median=channel=>{
-        channel.sort((a,b)=>a-b);
-        const mid=Math.floor(channel.length/2);
-        return channel.length%2?channel[mid]:Math.round((channel[mid-1]+channel[mid])/2);
+      if(pixels.length<40)return;
+      // Median from intact image-edge pixels is robust against compression noise.
+      const median=k=>{
+        const values=pixels.map(p=>p[k]).sort((a,b)=>a-b);
+        const n=values.length,m=n>>1;
+        return n%2?values[m]:Math.round((values[m-1]+values[m])/2);
       };
-      const [r,g,b]=samples.map(median);
-      const color="#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join("");
+      const color="#"+[median(0),median(1),median(2)]
+        .map(v=>v.toString(16).padStart(2,"0")).join("");
       document.documentElement.style.setProperty("--burgundy",color);
       document.documentElement.style.setProperty("--wine",color);
+      const meta=document.querySelector('meta[name="theme-color"]');
+      if(meta)meta.setAttribute("content",color);
     }catch(_error){
-      /* The CSS fallback remains visible if pixel sampling is unavailable. */
+      // The unified burgundy fallback stays active if canvas is unavailable.
     }
   }
   if(cover.complete&&cover.naturalWidth)matchSlideBackground();
