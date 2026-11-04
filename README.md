@@ -1,42 +1,31 @@
-# Kirsten & Mattia — Wedding invitations
+# Kirsten & Mattia — single wedding invitation
 
-Wedding date: **Monday, 7 December 2026**.
+**Live site:** https://mattiaafanti.github.io/Marriage/
 
-Reception: **Bahay Baluk-Baluk Restaurant**, Villas by Eco Hotels, Lumang Lipa, Mataasnakahoy, Batangas, Philippines.
+Only one design remains: the **Burgundy** invitation inspired by the main reference video. The landing page is the repository-root `index.html`. The other three alternative designs and the former `burgundy/` directory have been removed.
 
-This repository contains four **independently designed sites**, each based on a different user-supplied video:
+## Wedding details
 
-| Video | Directory | Design |
-|---|---|---|
-| `t main.mp4` | [burgundy/](./burgundy/) | Deep burgundy, childhood photos in frames, search-to-RSVP poster, 2.5-second initial monogram reveal |
-| `t1.mp4` | [botanical/](./botanical/) | Botanical white-green invitation sheets, floral corners, family and sponsors |
-| `t2.mp4` | [editorial/](./editorial/) | Blush editorial journal, photo collage, December calendar and timeline |
-| `t3.mp4` | [vintage/](./vintage/) | Ivory and champagne-gold formal invitation, cameo portraits, ceremonial sections |
+- Couple: Kirsten & Mattia
+- Date: Monday, 7 December 2026
+- Reception: Bahay Baluk-Baluk Restaurant, Villas by Eco Hotels, Lumang Lipa, Mataasnakahoy, Batangas, Philippines
+- Dress code: light brown, caramel, camel and sand
+- Music: `ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3` (attempts volume at 18%, no mute button)
 
-Use GitHub Pages with branch `main` and `/ (root)` as the publishing source. Home: `https://mattiaafanti.github.io/Marriage/`.
+## Cover image
 
-## Image and soundtrack assets
+`cover-kirsten-mattia.webp` is a **2048 × 3072** composition made from the approved illustrated wedding invitation. The illustrated frames contain the couple's real childhood portraits, sourced from **`matti hd.png`** and **`ker hd.png`**. It is a single static high-resolution background so that the page uses consistent proportions on smartphones, tablets and computers.
 
-Original images were uploaded directly to the repository root:
+The graphic's imitation RSVP field has been removed. Only the overlaid **HTML search input and search button** are interactive. They use the same shared RSVP logic from `wedding.js` and keep their position within the artwork on every device.
 
-- [Kirsten](./ker%20piccola.jpeg) — `ker piccola.jpeg` (960 × 1280)
-- [Mattia](./matti%20piccolo.jpeg) — `matti piccolo.jpeg` (1200 × 1600)
-- [Reception](./ristorante.jpg) — `ristorante.jpg`
+The first 2.5 seconds show the monogram `K & M` and 07·12·2026, then the cover appears. The first cover contains the Bible verse and no cropped date; the wedding date appears in the subsequent information section.
 
-The HTML uses these three images at their native source quality. Framing and face zoom are provided only through CSS. Details: [assets/README.md](./assets/README.md).
+## GitHub Pages
 
-The existing root-level MP3 `ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3` is linked in `shared/config.js`. All four templates attempt to play it at 18% volume, with no mute button. Browsers may require a user gesture before audible playback.
+In Settings → Pages choose `main` and `/ (root)`. Do not select a subfolder.
 
-## RSVP and Cloudflare
+## Cloudflare
 
-The four sites share one RSVP front-end script, `shared/wedding.js`, and one Cloudflare D1/Worker backend under `cloudflare/`.
+The backend remains available as root-level `worker.js`, `admin.js`, `schema.sql` and `wrangler.toml`. See [BACKEND.md](./BACKEND.md) for setup. The site operates in **preview-only RSVP mode** until the Worker URL and D1 are configured. Private invitation data is not published to this repository.
 
-- Invitees search their name and choose **Attending / Not attending**; there is **no password field** for invitees.
-- Live RSVP validation uses a signed personal link (`?invite=<token>`) supplied to each guest, not a typed password.
-- Until the Worker URL is configured in `shared/config.js`, the UI is in clearly labeled **PREVIEW ONLY** mode. Answers are **not sent to Cloudflare D1**.
-- The **admin panel remains password protected**, because guest attendance and internal notes are private. It is served by the Cloudflare Worker at `/admin`.
-- Private guest data and D1 imports must never be committed to GitHub.
-
-## Pending confirmation
-
-Wedding ceremony time, reception time, RSVP deadline, and transport arrangements are not specified yet and therefore intentionally remain unconfirmed in the templates.
+The original user-supplied source images remain in GitHub unchanged.

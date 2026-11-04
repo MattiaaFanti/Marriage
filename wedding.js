@@ -1,4 +1,4 @@
-/* Shared behavior: four separate invitations, one RSVP service. */
+/* Single Burgundy wedding invitation and RSVP client. */
 (() => {
   'use strict';
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
@@ -13,7 +13,7 @@
   document.querySelectorAll('[data-wedding-address]').forEach(n => n.textContent = cfg.address || 'Mataas Na Kahoy, Lipa, Batangas, Philippines');
   document.querySelectorAll('[data-map-link]').forEach(n => n.href = cfg.mapUrl);
   const soundtrack = document.createElement('audio');
-  soundtrack.src = cfg.musicFile || '../ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
+  soundtrack.src = cfg.musicFile || './ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
   soundtrack.loop = true;
   soundtrack.autoplay = true;
   soundtrack.preload = 'auto';

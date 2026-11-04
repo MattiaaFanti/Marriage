@@ -1,6 +1,5 @@
-assets/music.mp3
-cloudflare/seed-private.sql
-cloudflare/.dev.vars
-cloudflare/.wrangler/
 node_modules/
+.wrangler/
+.dev.vars
+seed-private.sql
 .DS_Store
