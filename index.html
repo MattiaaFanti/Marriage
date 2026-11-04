@@ -35,7 +35,7 @@ a{color:inherit}
 .cover-screen{min-height:100svh;display:flex;align-items:flex-start;justify-content:center;background:var(--burgundy);overflow:hidden}
 .cover-stage{position:relative;width:min(100vw,66.6667svh,820px);aspect-ratio:2/3;flex:none;container-type:inline-size;overflow:hidden}
 .cover-art{display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:fill;image-rendering:auto}
-/* slide1.png contains a decorative search bar: the real opaque HTML form overlays it exactly. Only the input and button are interactive HTML; all other visual content belongs to the artwork. */
+/* The new slide1.webp image remains the full illustration. The RSVP input and search button are separate HTML controls above it. */
 .cover-search{position:absolute;z-index:10;left:6.45%;top:33.35%;width:87.1%;height:6.45%;display:flex;align-items:stretch;gap:0;margin:0;padding:.8cqw;background:linear-gradient(90deg,#fff0e7,#f9e8e3);border:1px solid #fff7f0;border-radius:2.3cqw;box-shadow:0 .9cqw 1.5cqw #3d001842}
 .cover-search input{display:block;flex:1;min-width:0;width:0;border:0;background:transparent;outline:0;color:#583e43;padding:0 2cqw;font:400 clamp(12px,2.85cqw,24px)/1.2 'DM Sans',sans-serif}
 .cover-search input::placeholder{color:#6b6265;opacity:1}
@@ -75,7 +75,7 @@ a{color:inherit}
 <main>
  <section class="cover-screen" id="top" aria-label="Our wedding invitation">
   <div class="cover-stage">
-   <picture class="cover-image"><source srcset="./slide1.webp" type="image/webp"><img class="cover-art" src="./slide1.png" width="1280" height="1920" fetchpriority="high" decoding="async" alt="These kids are getting married. A bride and groom hold frames containing the childhood photos of Mattia and Kirsten; decorative wedding illustration with Song of Solomon 3:4."></picture>
+   <img class="cover-art" src="./slide1.webp?v=1368dc9baa19fbf0" fetchpriority="high" decoding="async" alt="Kirsten and Mattia wedding invitation cover">
    <form class="cover-search" data-rsvp-search aria-label="Search your wedding invitation">
     <input type="search" name="guest" autocomplete="name" placeholder="Search your name to RSVP" aria-label="Search your name to RSVP" required>
     <button type="submit" aria-label="Search invitation"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.5"></circle><path d="m16 16 5 5"></path></svg></button>
