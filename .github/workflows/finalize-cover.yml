@@ -1,0 +1,31 @@
+name: Finalize wedding cover with repository HD portraits
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/finalize-cover.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install photo processing libraries
+        run: pip install --quiet pillow numpy opencv-python-headless
+      - name: Replace photographed portraits using exact HD PNGs
+        run: python recompose_exact_github_photos.py
+      - name: Save final cover
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add cover-kirsten-mattia.webp
+          if ! git diff --cached --quiet; then
+            git commit -m "Use exact user-uploaded HD photographs inside approved wedding cover"
+            git push
+          fi
