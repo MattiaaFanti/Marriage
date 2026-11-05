@@ -12,33 +12,103 @@
   document.querySelectorAll('[data-wedding-date]').forEach(n => n.textContent = 'MONDAY · 07 DECEMBER 2026');
   document.querySelectorAll('[data-wedding-address]').forEach(n => n.textContent = cfg.address || 'Mataas Na Kahoy, Lipa, Batangas, Philippines');
   document.querySelectorAll('[data-map-link]').forEach(n => n.href = cfg.mapUrl);
-  const soundtrack = document.createElement('audio');
+  /* Background music through Web Audio (not <audio> / <video>):
+     - No HTML media player or media-session metadata is registered.
+     - Audio is stopped when the page is hidden, backgrounded or closed.
+     - Browsers may still show an OS-level indicator; websites cannot override it.
+     - Mobile browsers may require a user gesture to allow sound. */
+  const AudioContextType = window.AudioContext || window.webkitAudioContext;
   const backupMusic = './ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
-  soundtrack.src = cfg.musicFile || backupMusic;
-  let musicFallbackUsed = false;
-  soundtrack.addEventListener('error', () => {
-    if (musicFallbackUsed) return;
-    musicFallbackUsed = true;
-    soundtrack.src = backupMusic;
-    soundtrack.load();
-    soundtrack.play().catch(() => {});
-  });
-  soundtrack.loop = true;
-  soundtrack.autoplay = true;
-  soundtrack.preload = 'auto';
-  soundtrack.volume = 0.18;
-  soundtrack.setAttribute('playsinline','');
-  document.body.appendChild(soundtrack);
-  let playing = false;
-  function startMusic(){
-    if (playing) return;
-    soundtrack.play().then(()=>playing=true).catch(()=>{});
+  let musicContext = null;
+  let musicBuffer = null;
+  let musicLoading = null;
+  let musicSource = null;
+  let musicGain = null;
+  let musicRevision = 0;
+  let resumeWhenVisible = false;
+
+  const musicVisible = () => document.visibilityState === 'visible' && !document.hidden;
+
+  async function loadMusic(){
+    if(musicBuffer) return musicBuffer;
+    if(musicLoading) return musicLoading;
+    musicLoading = (async()=>{
+      const sources = [...new Set([cfg.musicFile,backupMusic].filter(Boolean))];
+      for(const src of sources){
+        try{
+          const response = await fetch(src, {cache:'force-cache'});
+          if(!response.ok) continue;
+          const bytes = await response.arrayBuffer();
+          if(!bytes.byteLength) continue;
+          const decoded = await musicContext.decodeAudioData(bytes);
+          if(decoded){
+            musicBuffer=decoded;
+            return decoded;
+          }
+        }catch(_error){
+          // Try the existing repository MP3 if the configured track is unavailable.
+        }
+      }
+      return null;
+    })();
+    return musicLoading;
   }
+
+  async function startMusic(){
+    if(!AudioContextType || !musicVisible() || musicSource) return;
+    const revision = ++musicRevision;
+    try{
+      if(!musicContext || musicContext.state==='closed')musicContext=new AudioContextType();
+      await musicContext.resume();
+      const buffer=await loadMusic();
+      if(!buffer || revision!==musicRevision || !musicVisible() || musicSource) return;
+      const gain=musicContext.createGain();
+      gain.gain.value=0.18;
+      const source=musicContext.createBufferSource();
+      source.buffer=buffer;
+      source.loop=true;
+      source.connect(gain);
+      gain.connect(musicContext.destination);
+      musicSource=source;
+      musicGain=gain;
+      source.start(0);
+      resumeWhenVisible=true;
+    }catch(_error){
+      // A user interaction is required by some browsers before audible playback.
+    }
+  }
+
+  function stopMusic(){
+    musicRevision++;
+    if(musicSource){
+      try{musicSource.stop(0)}catch(_error){}
+      try{musicSource.disconnect()}catch(_error){}
+      musicSource=null;
+    }
+    if(musicGain){
+      try{musicGain.disconnect()}catch(_error){}
+      musicGain=null;
+    }
+    if(musicContext && musicContext.state==='running')
+      musicContext.suspend().catch(()=>{});
+  }
+
   startMusic();
   document.addEventListener('DOMContentLoaded', startMusic, {once:true});
   window.addEventListener('load', startMusic, {once:true});
-  // When audible autoplay is blocked, the first natural gesture starts music.
-  ['pointerdown','keydown','touchstart'].forEach(e=>document.addEventListener(e,startMusic,{passive:true}));
+  // Browser policy fallback: the first natural gesture unlocks Web Audio.
+  for(const event of ['pointerdown','keydown','touchstart']){
+    document.addEventListener(event, startMusic, {passive:true});
+  }
+  document.addEventListener('visibilitychange',()=>{
+    if(!musicVisible()) stopMusic();
+    else if(resumeWhenVisible) startMusic();
+  });
+  window.addEventListener('pagehide',()=>{
+    resumeWhenVisible=false;
+    stopMusic();
+  });
+  document.addEventListener('freeze',stopMusic);
 
   // Guest names are never stored in public JavaScript. All lookup data lives in D1.
   const modal=document.createElement('div');
