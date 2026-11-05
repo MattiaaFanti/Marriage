@@ -20,6 +20,19 @@ The graphic's imitation RSVP field has been removed. Only the overlaid **HTML se
 
 The first 2.5 seconds show the monogram `K & M` and 07·12·2026, then the cover appears. The first cover contains the Bible verse and no cropped date; the wedding date appears in the subsequent information section.
 
+## Edit the six wedding invitation pages
+
+The live website remains a single scrollable invitation, but its visible content is divided into six independently editable Jekyll includes. Edit the relevant file, commit it on `main`, and GitHub Pages will rebuild the full invitation.
+
+1. [Cover and introduction](_includes/pages/01-cover-and-introduction.html)
+2. [Reception and location](_includes/pages/02-reception.html)
+3. [Dress code](_includes/pages/03-dress-code.html)
+4. [Gifts](_includes/pages/04-gifts.html)
+5. [Principal sponsors](_includes/pages/05-sponsors.html)
+6. [RSVP section](_includes/pages/06-rsvp.html)
+
+The root `index.html` joins these six pieces. Shared styling stays in `index.html` and `rsvp.css`; RSVP interaction is in `wedding.js`. Do not replace `slide1.webp` or alter the cover's proportions when editing an unrelated page.
+
 ## GitHub Pages
 
 In Settings → Pages choose `main` and `/ (root)`. Do not select a subfolder.
