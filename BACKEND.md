@@ -12,7 +12,7 @@
 - Public lookup accepts **exact** first name, surname, or full name (case-insensitive), not prefixes or wildcard queries. Shared first/surnames across groups require a full name.
 - Results show everyone in the same group and require one Attend / Not attend selection per person.
 - The confirmation token is a randomly generated, one-hour opaque session stored hashed in D1's existing `admin_sessions` table. It is not a password. No INVITE_SECRET or ADMIN_PASSWORD variable is needed.
-- The dashboard at **/admin** is intentionally passwordless and public, by request, and **read-only**. All guests and replies are visible to anyone who knows the address. Editing through unauthenticated admin endpoints is blocked.
+- The dashboard at **/admin** is intentionally passwordless and public, by request. Users can change each RSVP to Attend, Not attend, or Pending (Reset), and Reset all to Pending. All guests and replies are visible and editable by anyone who knows the address. Changes are logged in `rsvp_member_events`.
 - The Worker root redirects to the wedding website.
 
 ## Deploy updates

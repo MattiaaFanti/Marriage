@@ -101,12 +101,25 @@ async function adminPatch(req,env,id){
   if(!["pending","attending","not_attending"].includes(b?.status))return error("Invalid RSVP status.");
   const member=await env.DB.prepare("SELECT * FROM rsvp_members WHERE id=?").bind(id).first();
   if(!member)return error("Guest not found.",404);
+  if(member.rsvp_status===b.status)return json({ok:true,unchanged:true});
   const at=new Date().toISOString();
   await env.DB.batch([
     env.DB.prepare("UPDATE rsvp_members SET rsvp_status=?,updated_at=? WHERE id=?").bind(b.status,at,id),
     env.DB.prepare("INSERT INTO rsvp_member_events(member_id,previous_status,status,source,received_at) VALUES(?,?,?,'admin',?)").bind(id,member.rsvp_status,b.status,at)
   ]);
-  return json({ok:true});
+  return json({ok:true,status:b.status});
+}
+async function resetAll(req,env){
+  const body=await parseBody(req);
+  if(body?.confirm!=="RESET ALL RSVP")return error("Confirmation required.",400);
+  const count=await env.DB.prepare("SELECT COUNT(*) AS total FROM rsvp_members WHERE rsvp_status!='pending'").first();
+  if(!Number(count?.total||0))return json({ok:true,updated:0});
+  const at=new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO rsvp_member_events(member_id,previous_status,status,source,received_at) SELECT id,rsvp_status,'pending','admin',? FROM rsvp_members WHERE rsvp_status!='pending'").bind(at),
+    env.DB.prepare("UPDATE rsvp_members SET rsvp_status='pending',updated_at=? WHERE rsvp_status!='pending'").bind(at)
+  ]);
+  return json({ok:true,updated:Number(count.total)});
 }
 function csvCell(v){
   let s=String(v??"");
@@ -119,14 +132,17 @@ async function exportCsv(env){
   const text="\uFEFF"+[cols.join(","),...rows.map(row=>cols.map(k=>csvCell(row[k])).join(","))].join("\r\n");
   return new Response(text,{headers:{"Content-Type":"text/csv; charset=utf-8","Content-Disposition":'attachment; filename="wedding-group-rsvp.csv"',"Cache-Control":"no-store"}});
 }
-/* Public, read-only dashboard by explicit owner choice.
-   Never expose anonymous administrator PATCH/DELETE actions. */
+/* Public, passwordless RSVP dashboard by owner request. Admin status changes
+   are explicitly unauthenticated; do not expose extra operations. */
 export async function groupedRoutes(req,env){
   const path=new URL(req.url).pathname,method=req.method;
   if(path==="/api/household/lookup"&&method==="POST")return lookup(req,env);
   if(path==="/api/household/confirm"&&method==="POST")return submit(req,env);
   if(path==="/api/admin/households"&&method==="GET")return json(await overview(env));
   if(path==="/api/admin/households/export.csv"&&method==="GET")return exportCsv(env);
-  if(path.startsWith("/api/admin/"))return error("This public dashboard is read-only.",405);
+  if(path==="/api/admin/households/reset"&&method==="POST")return resetAll(req,env);
+  const memberPath=path.match(/^\/api\/admin\/households\/member\/(\d+)$/);
+  if(memberPath&&method==="PATCH")return adminPatch(req,env,Number(memberPath[1]));
+  if(path.startsWith("/api/admin/"))return error("Unknown admin endpoint.",404);
   return null;
 }
