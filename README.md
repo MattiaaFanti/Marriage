@@ -20,19 +20,18 @@ The graphic's imitation RSVP field has been removed. Only the overlaid **HTML se
 
 The opening animation shows `M & K`, `Mattia & Kirsten`, and `12. 07. 2026`, then the cover appears. The first cover contains the Bible verse and no cropped date; the wedding date appears in the subsequent information section.
 
-## Edit the seven wedding invitation pages
+## Edit the six remaining wedding invitation pages
 
-The live invitation scrolls continuously, but each page has its own editable Jekyll template.
+The site is one continuously scrolling invitation with six independently editable page templates.
 
 1. [Page 1 — Cover](_includes/pages/01-cover.html)
 2. [Page 2 — Civil wedding invitation](_includes/pages/02-invitation.html)
 3. [Page 3 — Ceremony and reception](_includes/pages/03-ceremony-reception.html)
 4. [Page 4 — Parents and principal sponsors](_includes/pages/04-parents-and-sponsors.html)
-5. [Page 5 — Dress code](_includes/pages/05-dress-code.html)
-6. [Page 6 — Gifts](_includes/pages/06-gifts.html)
-7. [Page 7 — RSVP](_includes/pages/07-rsvp.html)
+5. [Page 5 — The finer details (attire, gifts, celebration)](_includes/pages/05-dress-code.html)
+6. [Page 6 — Save the Date and RSVP (formerly Page 7)](_includes/pages/06-rsvp.html)
 
-The root `index.html` controls page order and shared styling. The six champagne-gold botanical separators are reusable Jekyll includes in `_includes/ornaments/page-divider.html`. Subtle background foliage comes from `assets/wedding-botanical-corner.svg`. The approved `slide1.webp` cover artwork and its sizing remain unchanged. The Page 1 font adjustment affects the opening HTML title, not lettering baked into the illustration.
+The former standalone Gifts page was removed because Page 5 already contains the requested gift message. The closing RSVP controls and functionality were preserved. Five botanical dividers separate the six pages; they share `_includes/ornaments/page-divider.html`. Responsive styling and page order are in `index.html`.
 
 ## GitHub Pages
 
