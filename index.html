@@ -38,6 +38,7 @@ a{color:inherit}
 .cover-screen{min-height:100svh;display:flex;align-items:flex-start;justify-content:center;background:var(--burgundy);overflow:hidden}
 .cover-stage{position:relative;width:min(100vw,66.6667svh,820px);aspect-ratio:2/3;flex:none;container-type:inline-size;overflow:hidden}
 .cover-art{display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:fill;image-rendering:auto}
+.cover-art-lower{display:none}
 .cover-verse-mobile{display:none}
 /* The new slide1.webp image remains the full illustration. The RSVP input and search button are separate HTML controls above it. */
 .cover-search{position:absolute;z-index:10;left:6.45%;top:33.35%;width:87.1%;height:6.45%;display:flex;align-items:stretch;gap:0;margin:0;padding:.8cqw;background:linear-gradient(90deg,#fff0e7,#f9e8e3);border:1px solid #fff7f0;border-radius:2.3cqw;box-shadow:0 .9cqw 1.5cqw #3d001842}
@@ -238,9 +239,12 @@ a{color:inherit}
    The burgundy gradient extends the same scene to the bottom of the screen. */
 @media(max-width:600px){
  .cover-screen{position:relative;height:100dvh;min-height:100svh;align-items:center;overflow:hidden;background:linear-gradient(180deg,#53020d 0%,#4a020a 84%,var(--burgundy) 100%)}
- .cover-stage{width:min(94vw,66.6667dvh);max-width:none;height:auto;min-height:0;aspect-ratio:2/3;flex:0 0 auto;overflow:hidden}
- .cover-art{width:100%;height:100%;object-fit:contain;-webkit-mask-image:linear-gradient(to bottom,#000 0%,#000 86%,transparent 90%);mask-image:linear-gradient(to bottom,#000 0%,#000 86%,transparent 90%)}
- .cover-search{top:31.65%}
+ .cover-stage{width:min(94vw,66.6667dvh);max-width:none;height:auto;min-height:0;aspect-ratio:2/3;flex:0 0 auto;overflow:hidden;background:radial-gradient(ellipse at 50% 42%,#400008 0%,#55000f 90%)}
+ .cover-art{width:100%;height:100%;object-fit:contain}
+ .cover-art-upper{clip-path:inset(0 0 59.85% 0)}
+ .cover-art-lower{display:block;clip-path:inset(40.15% 0 10% 0);transform:translateY(clamp(16px,2.7dvh,28px))}
+ .cover-lettering-cleanup{transform:translateY(clamp(16px,2.7dvh,28px))}
+ .cover-search{top:33.35%}
  .cover-verse-mobile{display:flex;position:absolute;z-index:2;left:5%;right:5%;bottom:max(10px,env(safe-area-inset-bottom,0px));flex-direction:column;align-items:center;text-align:center;gap:3px;color:#f8e9d6;pointer-events:none}
  .cover-verse-mobile .cover-verse-quote{margin:0;max-width:97%;font:italic 500 clamp(15px,3.9vw,19px)/1.2 'Cormorant Garamond',serif;letter-spacing:.005em;text-wrap:balance;text-shadow:0 1px 3px #24000870}
  .cover-verse-mobile .cover-verse-source{margin:0;font:600 clamp(8px,2.4vw,10px)/1.3 'DM Sans',sans-serif;letter-spacing:.22em;color:#e9cda9;text-shadow:0 1px 3px #24000870}
