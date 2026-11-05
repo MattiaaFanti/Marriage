@@ -119,6 +119,18 @@ a{color:inherit}
 .sponsors{display:grid;grid-template-columns:1fr 1fr;gap:0 28px;max-width:790px;margin:30px auto}
 .sponsors p{font:23px 'Cormorant Garamond',serif;border-bottom:1px solid #bd8a90;padding:13px 4px;margin:0}
 .sponsors small{display:block;font:11px 'DM Sans',sans-serif;color:#e5beaa}
+/* Elegant invitation-to-ceremony divider: self-contained, decorative only. */
+.wedding-transition{position:relative;isolation:isolate;display:grid;place-items:center;width:100%;min-height:0;height:clamp(135px,18vw,215px);background:var(--burgundy);overflow:hidden;pointer-events:none}
+.wedding-transition:before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 52% 68% at 50% 50%,rgba(213,154,120,.065),transparent 77%);pointer-events:none}
+.wedding-transition-art{position:relative;display:block;width:min(100%,1080px);height:100%;overflow:visible}
+.wedding-transition .transition-floral{opacity:.27}
+.wedding-transition .transition-center{opacity:.82}
+@media(max-width:600px){
+ .wedding-transition{height:clamp(96px,31vw,132px)}
+ .wedding-transition-art{width:140%;max-width:none;transform:scale(1.08)}
+ .wedding-transition .transition-floral{opacity:.23}
+ .wedding-transition .transition-center{opacity:.75}
+}
 .site-footer{padding:42px 15px;text-align:center;background:var(--burgundy);color:#e8c8b5;font-size:11px;letter-spacing:.12em}
 /* On narrow mobile viewports the portrait stage fills the entire visible screen.
    Keep desktop/iPad 2:3 composition unchanged; image and HTML RSVP remain aligned. */
@@ -144,6 +156,62 @@ a{color:inherit}
 <main>
  <div class="content">
   {% include pages/01-cover-and-introduction.html %}
+  <!-- Decorative transition between the invitation and the ceremony. -->
+  <div class="wedding-transition" id="invitation-ceremony-divider" aria-hidden="true">
+    <svg class="wedding-transition-art" viewBox="0 0 1000 220" xmlns="http://www.w3.org/2000/svg" focusable="false">
+      <defs>
+        <linearGradient id="wedding-gold-divider" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#e7bb91" stop-opacity="0"/>
+          <stop offset=".50" stop-color="#e7bb91" stop-opacity=".72"/>
+          <stop offset="1" stop-color="#e7bb91" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <!-- Faint, hand-drawn botanical flourishes on either side. -->
+      <g class="transition-floral" fill="none" stroke="#e6b98e" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round">
+        <g>
+          <path d="M-8 162 C56 157 84 111 145 111 S240 145 321 115"/>
+          <path d="M71 143 C50 116 51 91 56 80 C76 97 84 122 71 143Z"/>
+          <path d="M102 123 C94 93 108 70 121 64 C128 90 123 109 102 123Z"/>
+          <path d="M140 112 C139 87 158 73 176 75 C171 94 161 105 140 112Z"/>
+          <path d="M171 113 C191 93 213 95 224 107 C205 123 189 124 171 113Z"/>
+          <path d="M217 130 C230 151 247 156 264 149 C257 132 241 121 217 130Z"/>
+          <path d="M48 156 C40 177 21 188 6 180 C15 162 28 153 48 156Z"/>
+          <path d="M182 116 C190 96 190 77 184 62"/>
+          <circle cx="184" cy="61" r="3"/>
+          <path d="M180 61 Q171 55 173 46 Q184 48 184 61 Q192 49 202 51 Q199 63 184 61"/>
+          <path d="M273 123 C287 106 302 105 311 111"/>
+          <path d="M276 122 Q287 134 303 135 Q302 122 290 115"/>
+        </g>
+        <g transform="translate(1000 0) scale(-1 1)">
+          <path d="M-8 162 C56 157 84 111 145 111 S240 145 321 115"/>
+          <path d="M71 143 C50 116 51 91 56 80 C76 97 84 122 71 143Z"/>
+          <path d="M102 123 C94 93 108 70 121 64 C128 90 123 109 102 123Z"/>
+          <path d="M140 112 C139 87 158 73 176 75 C171 94 161 105 140 112Z"/>
+          <path d="M171 113 C191 93 213 95 224 107 C205 123 189 124 171 113Z"/>
+          <path d="M217 130 C230 151 247 156 264 149 C257 132 241 121 217 130Z"/>
+          <path d="M48 156 C40 177 21 188 6 180 C15 162 28 153 48 156Z"/>
+          <path d="M182 116 C190 96 190 77 184 62"/>
+          <circle cx="184" cy="61" r="3"/>
+          <path d="M180 61 Q171 55 173 46 Q184 48 184 61 Q192 49 202 51 Q199 63 184 61"/>
+          <path d="M273 123 C287 106 302 105 311 111"/>
+          <path d="M276 122 Q287 134 303 135 Q302 122 290 115"/>
+        </g>
+      </g>
+      <!-- Fine gold filigree, paired rings, and small wedding-day sparkles. -->
+      <g class="transition-center" fill="none" stroke="#edc79d" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M326 111 H459 M541 111 H674" stroke="url(#wedding-gold-divider)" stroke-width="1.5"/>
+        <path d="M459 111 Q473 99 481 111 M541 111 Q527 99 519 111" stroke-width="1.15"/>
+        <circle cx="488" cy="111" r="20" stroke-width="2.3"/>
+        <circle cx="512" cy="111" r="20" stroke-width="2.3"/>
+        <path d="M498 87 L500 80 L502 87 M498 134 L500 141 L502 134" stroke-width="1.15"/>
+        <path d="M500 56 L504 65 L500 74 L496 65 Z" stroke-width="1"/>
+        <path d="M500 148 L504 157 L500 166 L496 157 Z" stroke-width="1"/>
+        <path d="M435 107 L439 111 L435 115 L431 111 Z M565 107 L569 111 L565 115 L561 111 Z" stroke-width="1"/>
+        <circle cx="419" cy="111" r="1.7" fill="#edc79d" stroke="none"/>
+        <circle cx="581" cy="111" r="1.7" fill="#edc79d" stroke="none"/>
+      </g>
+    </svg>
+  </div>
   {% include pages/02-reception.html %}
   {% include pages/03-dress-code.html %}
   {% include pages/04-gifts.html %}
