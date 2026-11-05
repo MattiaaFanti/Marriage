@@ -18,20 +18,21 @@ Only one design remains: the **Burgundy** invitation inspired by the main refere
 
 The graphic's imitation RSVP field has been removed. Only the overlaid **HTML search input and search button** are interactive. They use the same shared RSVP logic from `wedding.js` and keep their position within the artwork on every device.
 
-The first 2.5 seconds show the monogram `K & M` and 07·12·2026, then the cover appears. The first cover contains the Bible verse and no cropped date; the wedding date appears in the subsequent information section.
+The opening animation shows `M & K`, `Mattia & Kirsten`, and `12. 07. 2026`, then the cover appears. The first cover contains the Bible verse and no cropped date; the wedding date appears in the subsequent information section.
 
-## Edit the six wedding invitation pages
+## Edit the seven wedding invitation pages
 
-The live website remains a single scrollable invitation, but its visible content is divided into six independently editable Jekyll includes. Edit the relevant file, commit it on `main`, and GitHub Pages will rebuild the full invitation.
+The live invitation scrolls continuously, but each page has its own editable Jekyll template.
 
-1. [Cover and introduction](_includes/pages/01-cover-and-introduction.html)
-2. [Reception and location](_includes/pages/02-reception.html)
-3. [Dress code](_includes/pages/03-dress-code.html)
-4. [Gifts](_includes/pages/04-gifts.html)
-5. [Principal sponsors](_includes/pages/05-sponsors.html)
-6. [RSVP section](_includes/pages/06-rsvp.html)
+1. [Page 1 — Cover](_includes/pages/01-cover.html)
+2. [Page 2 — Civil wedding invitation](_includes/pages/02-invitation.html)
+3. [Page 3 — Ceremony and reception](_includes/pages/03-ceremony-reception.html)
+4. [Page 4 — Parents and principal sponsors](_includes/pages/04-parents-and-sponsors.html)
+5. [Page 5 — Dress code](_includes/pages/05-dress-code.html)
+6. [Page 6 — Gifts](_includes/pages/06-gifts.html)
+7. [Page 7 — RSVP](_includes/pages/07-rsvp.html)
 
-The root `index.html` joins these six pieces. Shared styling stays in `index.html` and `rsvp.css`; RSVP interaction is in `wedding.js`. Do not replace `slide1.webp` or alter the cover's proportions when editing an unrelated page.
+The root `index.html` controls page order and shared styling. The six champagne-gold botanical separators are reusable Jekyll includes in `_includes/ornaments/page-divider.html`. Subtle background foliage comes from `assets/wedding-botanical-corner.svg`. The approved `slide1.webp` cover artwork and its sizing remain unchanged. The Page 1 font adjustment affects the opening HTML title, not lettering baked into the illustration.
 
 ## GitHub Pages
 
