@@ -9,4 +9,4 @@ PUBLIC_SITE_URL = "https://mattiaafanti.github.io/Marriage/"
 [[d1_databases]]
 binding = "DB"
 database_name = "mattia-kirsten-wedding"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "029babbd-b923-4f6f-b83b-095c6a912d32"
