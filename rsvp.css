@@ -15,3 +15,20 @@
 .rsvp-choices{display:flex;gap:12px;margin:17px 0}.rsvp-choices button{flex:1;border:1px solid #773a4d;color:#73354c;background:#fff;border-radius:8px;padding:13px 7px;cursor:pointer}.rsvp-choices button.chosen{background:#67263a;color:#fff}
 .rsvp-dialog input[type=number]{max-width:110px;margin:auto;text-align:center}
 .rsvp-colors{display:flex;justify-content:center;gap:7px;margin:22px 0}.rsvp-colors span{height:57px;flex:1;border-radius:60px 60px 4px 4px}
+
+/* Group RSVP – accessible, individual decisions within one invitation. */
+.rsvp-group-members{display:grid;gap:12px;margin:18px 0;text-align:left}
+.rsvp-member{border:1px solid #e4d5d4;border-radius:12px;padding:13px;background:#fff}
+.rsvp-member-name{font-weight:650;font-size:15px;margin-bottom:9px;color:#513342}
+.rsvp-member-name small{display:block;color:#90727c;font-size:11px;font-weight:500;margin-top:1px}
+.rsvp-member-options{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.rsvp-choice{padding:11px 8px;border-radius:8px;background:#fff;color:#6b4955;border:1.5px solid #d6c1c7;font:600 13px system-ui;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+.rsvp-choice.rsvp-yes.selected{background:#187c48;color:white;border-color:#187c48}
+.rsvp-choice.rsvp-no.selected{background:#b72d3c;color:white;border-color:#b72d3c}
+.rsvp-choice:focus-visible{outline:3px solid #b590a2;outline-offset:2px}
+.rsvp-primary:disabled{opacity:.4;cursor:not-allowed}
+.rsvp-progress{font-size:12px!important;color:#7a5767;margin:16px 0 5px!important}
+.rsvp-review{border-top:1px solid #eddfe2;border-bottom:1px solid #eddfe2;margin:20px 0;text-align:left}
+.rsvp-review>div{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px solid #f2e8e9}
+.rsvp-review>div:last-child{border-bottom:0}.rsvp-review strong{white-space:nowrap;font-size:12px}
+.rsvp-review .attend-text{color:#147b46}.rsvp-review .decline-text{color:#ad3341}
