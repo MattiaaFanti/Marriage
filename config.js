@@ -1,6 +1,6 @@
 /* Public wedding settings — keep admin secrets and private guest data in Cloudflare D1. */
 window.WEDDING_CONFIG = {
-  apiBase: "",
+  apiBase: "https://marriage.yaboyo95.workers.dev",
   weddingDate: "7 December 2026",
   weddingTime: "Time to be confirmed",
   venue: "Bahay Baluk-Baluk Restaurant",

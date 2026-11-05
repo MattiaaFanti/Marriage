@@ -42,8 +42,9 @@ function decorate(response,headers){
 async function route(req,env){
   const u=new URL(req.url),path=u.pathname,method=req.method;
   if(method==="GET"&&path==="/api/health")return json({ok:true});
-  const grouped=await groupedRoutes(req,env,authorized);
+  const grouped=await groupedRoutes(req,env);
   if(grouped)return grouped;
+  if(path==="/api/invite"||path==="/api/rsvp")return fail("Use the group RSVP service.",404);
   if(method==="GET"&&path==="/api/invite"){
     const id=await checkInvitation(u.searchParams.get("token"),env);
     if(!id)return fail("Invalid invitation code.",404);
@@ -164,13 +165,14 @@ export default {
   async fetch(req,env){
     const url=new URL(req.url);
     if(["/admin","/admin/","/admin/legacy","/admin/legacy/"].includes(url.pathname)){
-      return new Response(url.pathname.includes("/legacy")?adminPage:adminGroupsPage,{headers:{
+      return new Response(adminGroupsPage,{headers:{
         "Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store",
         "X-Content-Type-Options":"nosniff","Referrer-Policy":"no-referrer",
         "Content-Security-Policy":"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'"
       }});
     }
-    if(!env.DB||!env.INVITE_SECRET||!env.ADMIN_PASSWORD)return fail("Cloudflare Worker is not configured.",503);
+    if(!env.DB)return fail("Cloudflare D1 database binding is not configured.",503);
+    if(url.pathname==="/"&&req.method==="GET")return Response.redirect(env.PUBLIC_SITE_URL||"https://mattiaafanti.github.io/Marriage/",302);
     const origin=req.headers.get("Origin"),headers=cors(origin,env);
     if(origin&&origin!==url.origin&&!Object.keys(headers).length)return fail("Origin not allowed.",403);
     if(req.method==="OPTIONS")return decorate(new Response(null,{status:204}),headers);

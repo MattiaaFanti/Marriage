@@ -12,20 +12,25 @@ const equal = (a,b)=>{
 };
 const nameKey = input=>String(input??"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase("en-US").trim().replace(/\s+/g," ");
 const validKey = value=>value.length>=3&&value.length<=100&&/^[a-z]+(?:[ '-][a-z]+)*$/.test(value);
-async function hmac(groupId,until,env){
-  const key=await crypto.subtle.importKey("raw",textEncoder.encode(env.INVITE_SECRET),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
-  return b64(new Uint8Array(await crypto.subtle.sign("HMAC",key,textEncoder.encode("household:"+groupId+":"+until))));
-}
+/* Opaque 256-bit temporary RSVP session stored in the existing D1
+   admin_sessions table. It is not an admin login or a guest password.
+   Neither a hardcoded secret nor a Cloudflare variable is necessary. */
 async function createToken(groupId,env){
   const until=now()+3600;
-  return groupId+"."+until+"."+await hmac(groupId,until,env);
+  const nonce=b64(crypto.getRandomValues(new Uint8Array(32)));
+  const token=groupId+"."+until+"."+nonce;
+  await env.DB.prepare("INSERT INTO admin_sessions(token_hash,expires_at) VALUES(?,?)")
+    .bind(await digest(token),until).run();
+  return token;
 }
 async function validateToken(token,env){
   if(typeof token!=="string"||!/^[1-9]\d{0,9}\.\d{10}\.[A-Za-z0-9_-]{43}$/.test(token))return null;
-  const [groupIdText,untilText,signature]=token.split(".");
+  const [groupIdText,untilText]=token.split(".");
   const groupId=Number(groupIdText),until=Number(untilText);
   if(!Number.isSafeInteger(groupId)||until<now()||until>now()+3600)return null;
-  return equal(signature,await hmac(groupId,until,env))?groupId:null;
+  const stored=await env.DB.prepare("SELECT expires_at FROM admin_sessions WHERE token_hash=?")
+    .bind(await digest(token)).first();
+  return Number(stored?.expires_at)===until?groupId:null;
 }
 async function parseBody(req){
   const raw=await req.text();
@@ -38,7 +43,7 @@ async function membersOf(groupId,env){
 }
 async function throttle(req,env){
   const ip=req.headers.get("CF-Connecting-IP")||"unknown";
-  const ipHash=await digest(ip+"|"+env.INVITE_SECRET+"|guestlookup");
+  const ipHash=await digest(ip+"|wedding-guestlookup");
   const windowStart=Math.floor(now()/900)*900;
   await env.DB.prepare(
     "INSERT INTO rsvp_lookup_limiter(ip_hash,window_start,attempts) VALUES(?,?,1) "+
@@ -114,22 +119,14 @@ async function exportCsv(env){
   const text="\uFEFF"+[cols.join(","),...rows.map(row=>cols.map(k=>csvCell(row[k])).join(","))].join("\r\n");
   return new Response(text,{headers:{"Content-Type":"text/csv; charset=utf-8","Content-Disposition":'attachment; filename="wedding-group-rsvp.csv"',"Cache-Control":"no-store"}});
 }
-export async function groupedRoutes(req,env,authorized){
+/* Public, read-only dashboard by explicit owner choice.
+   Never expose anonymous administrator PATCH/DELETE actions. */
+export async function groupedRoutes(req,env){
   const path=new URL(req.url).pathname,method=req.method;
   if(path==="/api/household/lookup"&&method==="POST")return lookup(req,env);
   if(path==="/api/household/confirm"&&method==="POST")return submit(req,env);
-  if(path==="/api/admin/households"&&method==="GET"){
-    if(!await authorized(req,env))return error("Admin login required.",401);
-    return json(await overview(env));
-  }
-  if(path==="/api/admin/households/export.csv"&&method==="GET"){
-    if(!await authorized(req,env))return error("Admin login required.",401);
-    return exportCsv(env);
-  }
-  const match=path.match(/^\/api\/admin\/households\/member\/(\d+)$/);
-  if(match&&method==="PATCH"){
-    if(!await authorized(req,env))return error("Admin login required.",401);
-    return adminPatch(req,env,Number(match[1]));
-  }
+  if(path==="/api/admin/households"&&method==="GET")return json(await overview(env));
+  if(path==="/api/admin/households/export.csv"&&method==="GET")return exportCsv(env);
+  if(path.startsWith("/api/admin/"))return error("This public dashboard is read-only.",405);
   return null;
 }

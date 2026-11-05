@@ -1,24 +1,33 @@
-# Cloudflare Workers + D1 — single-site RSVP backend
+# RSVP backend — Cloudflare D1 + GitHub Pages
 
-The only wedding website is **https://mattiaafanti.github.io/Marriage/**. It is served from the GitHub repository root, not a theme subfolder.
+## Resources
+- GitHub Pages: https://mattiaafanti.github.io/Marriage/
+- Cloudflare Worker: https://marriage.yaboyo95.workers.dev
+- D1: mattia-kirsten-wedding (binding DB)
+- Worker name: marriage
 
-The guest list, RSVP records, internal notes and admin credentials must stay in Cloudflare D1 and Worker secrets, never in public GitHub files.
+## Current configuration
+- `config.js` points to the live Worker. There is no preview-only mode when the API is reachable.
+- The 31 invitation groups and 50 guests were imported to D1. No guest names are published in this repository.
+- Public lookup accepts **exact** first name, surname, or full name (case-insensitive), not prefixes or wildcard queries. Shared first/surnames across groups require a full name.
+- Results show everyone in the same group and require one Attend / Not attend selection per person.
+- The confirmation token is a randomly generated, one-hour opaque session stored hashed in D1's existing `admin_sessions` table. It is not a password. No INVITE_SECRET or ADMIN_PASSWORD variable is needed.
+- The dashboard at **/admin** is intentionally passwordless and public, by request, and **read-only**. All guests and replies are visible to anyone who knows the address. Editing through unauthenticated admin endpoints is blocked.
+- The Worker root redirects to the wedding website.
 
-## First deployment
+## Deploy updates
+The linked GitHub repository deploys automatically to the existing Worker. Use `npx wrangler deploy` as the deploy command. D1 tables are already present; do not repeat the schema import for normal deployments.
 
-1. Install Node.js.
-2. At the **root** of this repository, run `npm install` and `npx wrangler login`.
-3. Run `npx wrangler d1 create mattia-kirsten-wedding`.
-4. Set the returned `database_id` in `wrangler.toml`.
-5. Run `npm run migrate:remote`.
-6. Set `INVITE_SECRET` with `npx wrangler secret put INVITE_SECRET` and enter a unique long random secret.
-7. Set `ADMIN_PASSWORD` with `npx wrangler secret put ADMIN_PASSWORD` and enter a unique long private password.
-8. Run `npm run deploy`.
-9. In the root `config.js`, set `apiBase` to your deployed Worker origin.
-10. Open the Worker's **/admin** page to manage invitees, issue links, and monitor RSVP.
+## Verification
+1. Visit `https://marriage.yaboyo95.workers.dev/api/health`: expect `{"ok":true}`.
+2. Visit `https://marriage.yaboyo95.workers.dev/admin`: the live dashboard loads without a login screen.
+3. Search a real name on the GitHub Pages invitation. The modal shows every member of that group.
+4. Ensure "Continue" remains disabled until every member has an answer.
+5. Save the responses and refresh /admin. Individual counts update.
 
-Without steps 1–9 the website's RSVP is explicitly **preview-only** and does not store real responses. An invitation's guest-facing page has **no password**; live name verification uses a personal signed URL. The admin login remains protected.
-
-The MP3 is already present in the root and all music is played from there (subject to each browser's audible autoplay policy).
-
-D1 schema: `schema.sql`; API: `worker.js`; private dashboard: `admin.js`.
+## Files
+- `schema.sql`: database schema
+- `group-api.js`: D1 exact-match lookup, temporary sessions, atomic RSVP saves, read-only dashboard APIs
+- `worker.js`: Cloudflare Worker routing
+- `admin-groups.js`: public read-only dashboard
+- `wedding.js`: guest UI
