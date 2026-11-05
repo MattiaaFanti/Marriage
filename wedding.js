@@ -13,7 +13,16 @@
   document.querySelectorAll('[data-wedding-address]').forEach(n => n.textContent = cfg.address || 'Mataas Na Kahoy, Lipa, Batangas, Philippines');
   document.querySelectorAll('[data-map-link]').forEach(n => n.href = cfg.mapUrl);
   const soundtrack = document.createElement('audio');
-  soundtrack.src = cfg.musicFile || './ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
+  const backupMusic = './ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
+  soundtrack.src = cfg.musicFile || backupMusic;
+  let musicFallbackUsed = false;
+  soundtrack.addEventListener('error', () => {
+    if (musicFallbackUsed) return;
+    musicFallbackUsed = true;
+    soundtrack.src = backupMusic;
+    soundtrack.load();
+    soundtrack.play().catch(() => {});
+  });
   soundtrack.loop = true;
   soundtrack.autoplay = true;
   soundtrack.preload = 'auto';
