@@ -1,3 +1,6 @@
+---
+layout: null
+---
 <!doctype html>
 <html lang="en">
 <head>
@@ -83,22 +86,13 @@ a{color:inherit}
  <div class="splash-inner"><div class="splash-mark">K<span>&amp;</span>M</div><div class="splash-names">KIRSTEN · MATTIA</div><div class="splash-rule"></div><div class="splash-date">07 · 12 · 2026</div></div>
 </div>
 <main>
- <section class="cover-screen" id="top" aria-label="Our wedding invitation">
-  <div class="cover-stage">
-   <img class="cover-art" src="./slide1.webp?v=1368dc9baa19fbf0" fetchpriority="high" decoding="async" alt="Kirsten and Mattia wedding invitation cover">
-   <form class="cover-search" data-rsvp-search aria-label="Search your wedding invitation">
-    <input type="search" name="guest" autocomplete="name" placeholder="Search your name to RSVP" aria-label="Search your name to RSVP" required>
-    <button type="submit" aria-label="Search invitation"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.5"></circle><path d="m16 16 5 5"></path></svg></button>
-   </form>
-  </div>
- </section>
  <div class="content">
-  <section class="info-section" id="invitation"><div class="info-inner"><p class="eyebrow">TOGETHER WITH OUR FAMILIES</p><h2>We're getting married</h2><p>From childhood stories to our forever chapter, we invite you to join Kirsten and Mattia as they celebrate their wedding.</p><p class="big-date">MONDAY · 07 DECEMBER 2026</p><p>We can't wait to share this day with you.</p></div></section>
-  <section class="info-section" id="reception"><div class="info-inner"><p class="eyebrow">THE RECEPTION</p><h2>Bahay Baluk-Baluk Restaurant</h2><img class="venue-photo" src="./ristorante.jpg" loading="lazy" decoding="async" alt="Bahay Baluk-Baluk Restaurant terrace with lake and mountain views"><p>Villas by Eco Hotels, Lumang Lipa, Mataasnakahoy, Batangas, Philippines</p><p>Reception time and travel details will be shared when confirmed.</p><a class="action-link" target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps/place//data=!4m2!3m1!1s0x33bd6d880dbe4a37:0x81495d30b81ba6de">View on Google Maps</a></div></section>
-  <section class="info-section" id="dress-code"><div class="info-inner"><p class="eyebrow">A LITTLE NOTE FROM US</p><h2>Celebrate in Caramel</h2><p>We kindly request warm, elegant shades of light brown, camel, caramel or sand. Please choose plain, solid colors rather than prints or bold patterns.</p><div class="palette" aria-label="Dress code colors"><div style="background:#e3ceb0"><span>Sand</span></div><div style="background:#d2b18a"><span>Caramel</span></div><div style="background:#b9936c"><span>Camel</span></div><div style="background:#9d7555"><span>Toffee</span></div></div></div></section>
-  <section class="info-section" id="gifts"><div class="info-inner"><p class="eyebrow">A NOTE ABOUT GIFTS</p><h2>With love &amp; gratitude</h2><p>Your presence is our greatest gift. If you wish to give something more, a monetary contribution towards our future together would be warmly appreciated.</p></div></section>
-  <section class="info-section" id="sponsors"><div class="info-inner"><p class="eyebrow">THE PEOPLE WHO GUIDE US</p><h2>Principal Sponsors</h2><div class="sponsors"><p>Jef &amp; Judith Sevilleno</p><p>Donald &amp; Jessica Agbay</p><p>Jason &amp; Joan Quizon</p><p>Madison &amp; Angel Dimaculangan</p><p>Entiquio &amp; Lyn Briones</p><p>Renato &amp; Geraldine San Pedro</p><p>Mario Buccola &amp; Rita Morisco <small>(confirmation pending)</small></p></div></div></section>
-  <section class="info-section" id="confirm"><div class="info-inner"><p class="eyebrow">ONE LAST THING</p><h2>Will you be there?</h2><p>We hope you'll join us on our special day. Please let us know if you can celebrate with us.</p><button class="action-link" type="button" data-open-rsvp>Confirm your attendance</button></div></section>
+  {% include pages/01-cover-and-introduction.html %}
+  {% include pages/02-reception.html %}
+  {% include pages/03-dress-code.html %}
+  {% include pages/04-gifts.html %}
+  {% include pages/05-sponsors.html %}
+  {% include pages/06-rsvp.html %}
  </div>
 </main>
 <footer class="site-footer">KIRSTEN &amp; MATTIA · 07 DECEMBER 2026</footer>
