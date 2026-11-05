@@ -84,6 +84,32 @@ a{color:inherit}
 }
 .big-date{font:600 clamp(29px,5vw,53px)/1.3 'Cormorant Garamond',serif;letter-spacing:.12em}
 .venue-photo{display:block;width:min(100%,740px);height:auto;max-height:460px;object-fit:cover;border:10px solid #fff9f3;margin:26px auto;box-shadow:0 10px 27px #60324426}
+/* Third visible page: ceremony and reception, matched to the burgundy invitation. */
+.info-section.event-section{min-height:auto;padding:clamp(72px,8vw,105px) 22px clamp(85px,9vw,115px)}
+.event-section .event-inner{max-width:810px}
+.event-section .event-eyebrow{margin:0 auto 18px;color:#e8c8b5;font:600 clamp(12px,1.35vw,15px)/1.4 'DM Sans',sans-serif;letter-spacing:.24em;text-transform:uppercase}
+.event-section .event-venue{max-width:760px;margin:0 auto;color:var(--cream);font:500 clamp(35px,5vw,55px)/1.1 'Cormorant Garamond',serif;letter-spacing:.028em;text-transform:uppercase;text-wrap:balance}
+.event-section .event-subtitle{margin:17px auto 0;color:#e8c8b5;font:italic 400 clamp(24px,3.4vw,34px)/1.25 'Cormorant Garamond',serif}
+.event-section .event-date{margin:43px auto 3px;color:var(--cream);font:600 clamp(27px,4.6vw,44px)/1.2 'Cormorant Garamond',serif;letter-spacing:.055em;text-transform:uppercase}
+.event-section .event-time{margin:8px auto 0;color:var(--cream);font:500 clamp(17px,2.2vw,22px)/1.35 'DM Sans',sans-serif;letter-spacing:.045em;text-transform:uppercase}
+.event-section .event-time span{display:inline-block;padding:0 .35em;color:#d8ae8f}
+.event-section .event-divider{display:flex;align-items:center;justify-content:center;gap:17px;max-width:680px;margin:58px auto 55px}
+.event-section .event-divider:before,.event-section .event-divider:after{content:"";height:1px;flex:1;background:linear-gradient(90deg,transparent,#d8ae8f9b)}
+.event-section .event-divider:after{background:linear-gradient(90deg,#d8ae8f9b,transparent)}
+.event-section .event-divider span{width:6px;height:6px;transform:rotate(45deg);background:#d8ae8f}
+.event-section .event-reception-note{margin:18px auto 0}
+.event-section .venue-photo{margin:32px auto 22px}
+.event-section .event-address{max-width:650px;margin:12px auto 0;color:var(--cream);font:400 clamp(14px,1.7vw,17px)/1.65 'DM Sans',sans-serif}
+.event-section .event-travel{max-width:620px;margin:9px auto 0;color:#e8c8b5;font:400 clamp(12px,1.5vw,14px)/1.65 'DM Sans',sans-serif}
+.event-section .action-link{margin-top:22px}
+@media(max-width:600px){
+ .info-section.event-section{padding:70px 20px 84px}
+ .event-section .event-eyebrow{margin-bottom:16px;letter-spacing:.18em}
+ .event-section .event-venue{font-size:clamp(32px,8.3vw,43px)}
+ .event-section .event-date{margin-top:32px;font-size:clamp(27px,7.6vw,36px)}
+ .event-section .event-divider{margin:46px auto 43px}
+ .event-section .venue-photo{border-width:6px;margin:26px auto 19px}
+}
 .action-link{display:inline-block;padding:13px 23px;border:0;border-radius:4px;background:#6a1c36;color:#fff6ed;text-decoration:none;font-size:13px;font-weight:600;letter-spacing:.04em;margin-top:18px}
 .action-link:hover{background:#862f4c}
 .palette{display:flex;justify-content:center;gap:9px;max-width:550px;margin:35px auto}
