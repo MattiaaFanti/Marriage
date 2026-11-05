@@ -1,4 +1,6 @@
 import { adminPage } from "./admin.js";
+import { adminGroupsPage } from "./admin-groups.js";
+import { groupedRoutes } from "./group-api.js";
 const enc = new TextEncoder();
 const json = (data,status=200) => new Response(JSON.stringify(data),{status,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
 const fail = (message,status=400) => json({error:message},status);
@@ -40,6 +42,8 @@ function decorate(response,headers){
 async function route(req,env){
   const u=new URL(req.url),path=u.pathname,method=req.method;
   if(method==="GET"&&path==="/api/health")return json({ok:true});
+  const grouped=await groupedRoutes(req,env,authorized);
+  if(grouped)return grouped;
   if(method==="GET"&&path==="/api/invite"){
     const id=await checkInvitation(u.searchParams.get("token"),env);
     if(!id)return fail("Invalid invitation code.",404);
@@ -159,8 +163,8 @@ async function route(req,env){
 export default {
   async fetch(req,env){
     const url=new URL(req.url);
-    if(url.pathname==="/admin"||url.pathname==="/admin/"){
-      return new Response(adminPage,{headers:{
+    if(["/admin","/admin/","/admin/legacy","/admin/legacy/"].includes(url.pathname)){
+      return new Response(url.pathname.includes("/legacy")?adminPage:adminGroupsPage,{headers:{
         "Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store",
         "X-Content-Type-Options":"nosniff","Referrer-Policy":"no-referrer",
         "Content-Security-Policy":"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'"
