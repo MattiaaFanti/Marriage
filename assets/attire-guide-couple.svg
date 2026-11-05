@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 560" role="img" aria-labelledby="attire-title attire-desc">
+<title id="attire-title">Semi-formal red and burgundy outfit inspiration</title>
+<desc id="attire-desc">A faceless female mannequin in a floor-length burgundy evening dress and a faceless male mannequin wearing a wine-colored suit, displayed on a warm ivory studio background.</desc>
+<defs>
+ <linearGradient id="back" x2="0" y2="1"><stop stop-color="#fff9f4"/><stop offset="1" stop-color="#e6d5cc"/></linearGradient>
+ <linearGradient id="dress" x1="0" y1="0" x2=".97" y2=".22"><stop stop-color="#4b0b20"/><stop offset=".2" stop-color="#aa2143"/><stop offset=".46" stop-color="#700c28"/><stop offset=".7" stop-color="#920e31"/><stop offset="1" stop-color="#330919"/></linearGradient>
+ <linearGradient id="skirt" x1="0" y1="0" x2="1" y2=".25"><stop stop-color="#3c0918"/><stop offset=".23" stop-color="#8b102c"/><stop offset=".42" stop-color="#b82e4c"/><stop offset=".59" stop-color="#710d26"/><stop offset=".82" stop-color="#9f2340"/><stop offset="1" stop-color="#350b1e"/></linearGradient>
+ <linearGradient id="jacket" x1=".1" y1="0" x2=".95" y2=".45"><stop stop-color="#370b19"/><stop offset=".25" stop-color="#68172b"/><stop offset=".53" stop-color="#8c2436"/><stop offset=".76" stop-color="#5a0e24"/><stop offset="1" stop-color="#2e0d1d"/></linearGradient>
+ <linearGradient id="trouser" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#35101c"/><stop offset=".45" stop-color="#75182f"/><stop offset=".83" stop-color="#4d1225"/><stop offset="1" stop-color="#2b0d1b"/></linearGradient>
+ <linearGradient id="skin" x2="1" y2="0"><stop stop-color="#c89177"/><stop offset=".45" stop-color="#edbca1"/><stop offset="1" stop-color="#b4765e"/></linearGradient>
+ <linearGradient id="shoe" x2="1" y2="1"><stop stop-color="#24171b"/><stop offset="1" stop-color="#08080a"/></linearGradient>
+ <filter id="softshadow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="15"/></filter>
+ <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%"><feGaussianBlur stdDeviation="4"/></filter>
+</defs>
+<rect width="880" height="560" rx="24" fill="url(#back)"/>
+<path d="M0 462 Q440 435 880 462 L880 560 H0Z" fill="#d6bab1" opacity=".35"/>
+<ellipse cx="441" cy="519" rx="310" ry="19" fill="#3f2020" opacity=".23" filter="url(#softshadow)"/>
+<!-- Woman: full-length dress, face/head entirely outside frame -->
+<g transform="translate(87,5)">
+ <path d="M146 95 L146 135 L132 159 L159 181 L201 181 L231 159 L213 136 L213 95Z" fill="url(#skin)"/>
+ <path d="M115 171 C100 187 100 208 89 265 L67 332 Q72 349 86 344 L117 265 L132 217Z" fill="url(#skin)"/>
+ <path d="M247 171 C267 190 269 215 277 269 L294 331 Q288 347 274 341 L246 272 L234 217Z" fill="url(#skin)"/>
+ <path d="M147 145 Q178 168 213 145 L237 168 L249 209 L222 288 L133 288 L107 209 L119 169Z" fill="url(#dress)" stroke="#521024" stroke-width="2"/>
+ <path d="M147 145 Q180 200 213 145 Q194 167 180 169 Q159 165 147 145Z" fill="#b83451" opacity=".64"/>
+ <path d="M120 169 Q152 161 179 193 Q211 159 235 169" fill="none" stroke="#e78b96" stroke-width="3" opacity=".48"/>
+ <path d="M124 198 Q151 219 145 274 M237 199 Q213 238 217 274" fill="none" stroke="#f1818e" stroke-width="4" opacity=".23"/>
+ <path d="M132 275 Q175 285 222 275 L236 339 C253 393 300 492 314 514 Q199 532 44 514 C67 471 97 407 109 336Z" fill="url(#skirt)" stroke="#4c0e22" stroke-width="2"/>
+ <path d="M136 288 Q132 406 88 509 M166 290 Q170 397 148 520 M190 289 Q216 411 214 519 M213 290 Q257 416 276 512" fill="none" stroke="#d35b6c" stroke-width="7" opacity=".24"/>
+ <path d="M132 275 Q178 291 222 275" fill="none" stroke="#ec9ba7" stroke-width="4" opacity=".5"/>
+ <path d="M88 341 L76 364 Q69 373 75 377 L95 368Z M286 342 L296 368 Q294 380 284 376 L276 358Z" fill="url(#skin)"/>
+ <path d="M117 305 Q145 301 176 304 Q201 302 235 305" fill="none" stroke="#400718" stroke-width="2" opacity=".45"/>
+</g>
+<!-- Man: classic wine suit, face/head outside frame -->
+<g transform="translate(446,6)">
+ <path d="M150 90 L150 140 L136 155 L154 179 L209 179 L229 155 L211 140 L211 90Z" fill="url(#skin)"/>
+ <path d="M113 165 Q97 174 91 205 L81 318 L104 334 L120 256 L137 226Z" fill="url(#jacket)" stroke="#451226" stroke-width="2"/>
+ <path d="M243 165 Q263 175 273 207 L282 318 L259 334 L241 257 L226 226Z" fill="url(#jacket)" stroke="#451226" stroke-width="2"/>
+ <path d="M105 325 L109 347 Q113 357 124 355 L126 341 L109 323Z M255 325 L255 347 Q250 357 241 355 L238 341 L255 323Z" fill="url(#skin)"/>
+ <path d="M145 147 L182 189 L217 147 L227 166 L220 330 L136 330 L126 164Z" fill="#f5eee9"/>
+ <path d="M175 162 L190 163 L200 184 L184 260 L175 240 L181 185Z" fill="#5b0c20"/>
+ <path d="M167 147 L179 164 L165 193 L144 173Z M221 147 L194 164 L206 193 L232 173Z" fill="#fffaf5" stroke="#e1d3d0" stroke-width="2"/>
+ <path d="M131 150 L166 177 L186 270 L154 324 L119 315 L126 176Z" fill="url(#jacket)" stroke="#431124" stroke-width="2"/>
+ <path d="M226 151 L195 177 L182 270 L214 326 L249 315 L237 177Z" fill="url(#jacket)" stroke="#431124" stroke-width="2"/>
+ <path d="M140 161 L171 222 L157 231 L182 277 L162 307 M222 160 L194 221 L207 231 L184 277 L206 310" stroke="#b65a65" stroke-width="2.5" fill="none" opacity=".66"/>
+ <path d="M128 314 L247 314 L247 341 L133 341Z" fill="#4a1125"/>
+ <circle cx="192" cy="299" r="2.6" fill="#dfc9a5"/>
+ <path d="M133 337 L185 340 L180 464 L169 513 L120 513 L117 467Z" fill="url(#trouser)" stroke="#3d1120" stroke-width="2"/>
+ <path d="M185 340 L243 336 L256 470 L257 513 L210 513 L200 465Z" fill="url(#trouser)" stroke="#3d1120" stroke-width="2"/>
+ <path d="M158 346 L149 500 M214 347 L224 503" stroke="#bd7380" stroke-width="2" opacity=".35"/>
+ <path d="M120 505 L171 507 L172 526 Q145 533 101 528 Q97 518 120 505Z" fill="url(#shoe)"/>
+ <path d="M209 508 L259 506 Q281 519 277 527 Q244 533 208 527Z" fill="url(#shoe)"/>
+ <path d="M150 172 L153 206 L142 258 M242 178 L250 257" stroke="#bf7784" stroke-width="2" opacity=".3" fill="none"/>
+</g>
+<rect x="14" y="14" width="852" height="532" rx="17" fill="none" stroke="#bd9c8d" stroke-opacity=".5" stroke-width="1.5"/>
+</svg>
