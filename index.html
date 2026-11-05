@@ -30,11 +30,11 @@ a{color:inherit}
 .splash{position:fixed;z-index:999;inset:0;display:grid;place-items:center;background:var(--burgundy);color:#f8e9db;text-align:center;opacity:1;visibility:visible;transition:opacity .76s ease,visibility .76s ease}
 .splash.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
 .splash-inner{padding:24px}
-.splash-mark{font:400 clamp(83px,12vw,135px)/.85 'Cormorant Garamond',serif;letter-spacing:-.075em}
+.splash-mark{font:400 clamp(77px,11vw,125px)/.85 'Cormorant Garamond',serif;letter-spacing:-.075em}
 .splash-mark span{font-size:.43em;letter-spacing:0;vertical-align:middle;color:#dfb990;margin:0 .1em}
-.splash-names{font:400 clamp(24px,3vw,39px) 'Cormorant Garamond',serif;letter-spacing:.17em;margin-top:36px}
+.splash-names{font:400 clamp(22px,2.8vw,36px) 'Cormorant Garamond',serif;letter-spacing:.17em;margin-top:36px}
 .splash-rule{height:1px;width:200px;max-width:60vw;margin:24px auto 20px;background:#efd1b9}
-.splash-date{font-size:13px;letter-spacing:.32em}
+.splash-date{font-size:12px;letter-spacing:.32em}
 .cover-screen{min-height:100svh;display:flex;align-items:flex-start;justify-content:center;background:var(--burgundy);overflow:hidden}
 .cover-stage{position:relative;width:min(100vw,66.6667svh,820px);aspect-ratio:2/3;flex:none;container-type:inline-size;overflow:hidden}
 .cover-art{display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:fill;image-rendering:auto}
@@ -131,6 +131,44 @@ a{color:inherit}
  .wedding-transition .transition-floral{opacity:.23}
  .wedding-transition .transition-center{opacity:.75}
 }
+/* Seven-page invitation: light champagne-gold foliage in unused corner space. */
+.info-section.page-ornament{position:relative;isolation:isolate;overflow:hidden}
+.info-section.page-ornament::before,
+.info-section.page-ornament::after{content:"";position:absolute;z-index:0;pointer-events:none;width:clamp(130px,27vw,300px);height:clamp(175px,34vw,375px);background-image:url("./assets/wedding-botanical-corner.svg");background-size:contain;background-position:center;background-repeat:no-repeat;opacity:.16}
+.info-section.page-ornament::before{top:5%;left:calc(-1 * clamp(85px,12vw,170px))}
+.info-section.page-ornament::after{bottom:4%;right:calc(-1 * clamp(85px,12vw,170px));transform:rotate(180deg)}
+.info-section.page-ornament > .info-inner{position:relative;z-index:1}
+.wedding-transition:not(#divider-2-3){height:clamp(108px,13vw,150px)}
+/* Page 4: parents and principal sponsors. Capitalized headings are deliberately emphasized. */
+.info-section.family-section{min-height:auto;padding:clamp(78px,9vw,115px) 22px clamp(86px,9vw,120px)}
+.family-inner{max-width:860px}
+.family-section .family-parents{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:clamp(24px,5vw,78px);row-gap:44px;align-items:start}
+.family-parent-group{padding:20px 8px 12px}
+.family-section .family-parent-label{font:600 clamp(12px,1.55vw,16px)/1.6 'DM Sans',sans-serif;letter-spacing:.16em;color:#dfb990;margin:0 auto 21px;text-transform:uppercase}
+.family-section .family-parent-name{font:500 clamp(24px,3.3vw,35px)/1.35 'Cormorant Garamond',serif;color:var(--cream);margin:5px auto;max-width:none}
+.family-plus{color:#d8ae8f;font-family:'Cormorant Garamond',serif;font-weight:600;margin-right:3px}
+.family-inner-divider{max-width:650px;display:flex;align-items:center;gap:16px;margin:54px auto 42px}
+.family-inner-divider::before,.family-inner-divider::after{content:"";height:1px;flex:1;background:linear-gradient(90deg,transparent,#cda483a8)}
+.family-inner-divider::after{background:linear-gradient(90deg,#cda483a8,transparent)}
+.family-inner-divider span{display:block;width:7px;height:7px;background:#d4ad8c;transform:rotate(45deg)}
+.family-section .family-guidance{font:italic 400 clamp(25px,3.2vw,34px)/1.2 'Cormorant Garamond',serif;color:#e3c1a5;margin:0 auto 12px}
+.family-section .family-sponsors-label{font:600 clamp(14px,1.9vw,19px)/1.55 'DM Sans',sans-serif;letter-spacing:.19em;color:#fff0e5;text-transform:uppercase;margin:0 auto 23px}
+.family-sponsor-list{max-width:760px;margin:0 auto;padding:0 4px}
+.family-section .family-sponsor-list p{max-width:none;margin:0;padding:9px 7px;font:400 clamp(22px,2.9vw,31px)/1.24 'Cormorant Garamond',serif;color:#fff3ea}
+.family-section .family-sponsor-list p + p{border-top:1px solid #d1a88528}
+@media(max-width:600px){
+ .info-section.page-ornament::before,.info-section.page-ornament::after{width:170px;height:225px;opacity:.105}
+ .info-section.page-ornament::before{left:-111px;top:4%}
+ .info-section.page-ornament::after{right:-111px;bottom:4%}
+ .wedding-transition:not(#divider-2-3){height:clamp(76px,23vw,98px)}
+ .info-section.family-section{padding:70px 20px 80px}
+ .family-section .family-parents{grid-template-columns:1fr;row-gap:30px}
+ .family-parent-group{padding:0 4px}
+ .family-section .family-parent-label{margin-bottom:14px}
+ .family-section .family-parent-name{font-size:clamp(25px,7vw,31px)}
+ .family-inner-divider{margin:42px auto 34px}
+ .family-section .family-sponsor-list p{padding:9px 0;font-size:clamp(22px,5.9vw,26px);line-height:1.32}
+}
 .site-footer{padding:42px 15px;text-align:center;background:var(--burgundy);color:#e8c8b5;font-size:11px;letter-spacing:.12em}
 /* On narrow mobile viewports the portrait stage fills the entire visible screen.
    Keep desktop/iPad 2:3 composition unchanged; image and HTML RSVP remain aligned. */
@@ -155,68 +193,19 @@ a{color:inherit}
 </div>
 <main>
  <div class="content">
-  {% include pages/01-cover-and-introduction.html %}
-  <!-- Decorative transition between the invitation and the ceremony. -->
-  <div class="wedding-transition" id="invitation-ceremony-divider" aria-hidden="true">
-    <svg class="wedding-transition-art" viewBox="0 0 1000 220" xmlns="http://www.w3.org/2000/svg" focusable="false">
-      <defs>
-        <linearGradient id="wedding-gold-divider" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stop-color="#e7bb91" stop-opacity="0"/>
-          <stop offset=".50" stop-color="#e7bb91" stop-opacity=".72"/>
-          <stop offset="1" stop-color="#e7bb91" stop-opacity="0"/>
-        </linearGradient>
-      </defs>
-      <!-- Faint, hand-drawn botanical flourishes on either side. -->
-      <g class="transition-floral" fill="none" stroke="#e6b98e" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round">
-        <g>
-          <path d="M-8 162 C56 157 84 111 145 111 S240 145 321 115"/>
-          <path d="M71 143 C50 116 51 91 56 80 C76 97 84 122 71 143Z"/>
-          <path d="M102 123 C94 93 108 70 121 64 C128 90 123 109 102 123Z"/>
-          <path d="M140 112 C139 87 158 73 176 75 C171 94 161 105 140 112Z"/>
-          <path d="M171 113 C191 93 213 95 224 107 C205 123 189 124 171 113Z"/>
-          <path d="M217 130 C230 151 247 156 264 149 C257 132 241 121 217 130Z"/>
-          <path d="M48 156 C40 177 21 188 6 180 C15 162 28 153 48 156Z"/>
-          <path d="M182 116 C190 96 190 77 184 62"/>
-          <circle cx="184" cy="61" r="3"/>
-          <path d="M180 61 Q171 55 173 46 Q184 48 184 61 Q192 49 202 51 Q199 63 184 61"/>
-          <path d="M273 123 C287 106 302 105 311 111"/>
-          <path d="M276 122 Q287 134 303 135 Q302 122 290 115"/>
-        </g>
-        <g transform="translate(1000 0) scale(-1 1)">
-          <path d="M-8 162 C56 157 84 111 145 111 S240 145 321 115"/>
-          <path d="M71 143 C50 116 51 91 56 80 C76 97 84 122 71 143Z"/>
-          <path d="M102 123 C94 93 108 70 121 64 C128 90 123 109 102 123Z"/>
-          <path d="M140 112 C139 87 158 73 176 75 C171 94 161 105 140 112Z"/>
-          <path d="M171 113 C191 93 213 95 224 107 C205 123 189 124 171 113Z"/>
-          <path d="M217 130 C230 151 247 156 264 149 C257 132 241 121 217 130Z"/>
-          <path d="M48 156 C40 177 21 188 6 180 C15 162 28 153 48 156Z"/>
-          <path d="M182 116 C190 96 190 77 184 62"/>
-          <circle cx="184" cy="61" r="3"/>
-          <path d="M180 61 Q171 55 173 46 Q184 48 184 61 Q192 49 202 51 Q199 63 184 61"/>
-          <path d="M273 123 C287 106 302 105 311 111"/>
-          <path d="M276 122 Q287 134 303 135 Q302 122 290 115"/>
-        </g>
-      </g>
-      <!-- Fine gold filigree, paired rings, and small wedding-day sparkles. -->
-      <g class="transition-center" fill="none" stroke="#edc79d" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M326 111 H459 M541 111 H674" stroke="url(#wedding-gold-divider)" stroke-width="1.5"/>
-        <path d="M459 111 Q473 99 481 111 M541 111 Q527 99 519 111" stroke-width="1.15"/>
-        <circle cx="488" cy="111" r="20" stroke-width="2.3"/>
-        <circle cx="512" cy="111" r="20" stroke-width="2.3"/>
-        <path d="M498 87 L500 80 L502 87 M498 134 L500 141 L502 134" stroke-width="1.15"/>
-        <path d="M500 56 L504 65 L500 74 L496 65 Z" stroke-width="1"/>
-        <path d="M500 148 L504 157 L500 166 L496 157 Z" stroke-width="1"/>
-        <path d="M435 107 L439 111 L435 115 L431 111 Z M565 107 L569 111 L565 115 L561 111 Z" stroke-width="1"/>
-        <circle cx="419" cy="111" r="1.7" fill="#edc79d" stroke="none"/>
-        <circle cx="581" cy="111" r="1.7" fill="#edc79d" stroke="none"/>
-      </g>
-    </svg>
-  </div>
-  {% include pages/02-reception.html %}
-  {% include pages/03-dress-code.html %}
-  {% include pages/04-gifts.html %}
-  {% include pages/05-sponsors.html %}
-  {% include pages/06-rsvp.html %}
+  {% include pages/01-cover.html %}
+  {% include ornaments/page-divider.html id="1-2" %}
+  {% include pages/02-invitation.html %}
+  {% include ornaments/page-divider.html id="2-3" %}
+  {% include pages/03-ceremony-reception.html %}
+  {% include ornaments/page-divider.html id="3-4" %}
+  {% include pages/04-parents-and-sponsors.html %}
+  {% include ornaments/page-divider.html id="4-5" %}
+  {% include pages/05-dress-code.html %}
+  {% include ornaments/page-divider.html id="5-6" %}
+  {% include pages/06-gifts.html %}
+  {% include ornaments/page-divider.html id="6-7" %}
+  {% include pages/07-rsvp.html %}
  </div>
 </main>
 <footer class="site-footer">KIRSTEN &amp; MATTIA · 07 DECEMBER 2026</footer>
