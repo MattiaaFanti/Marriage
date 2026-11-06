@@ -1,6 +1,6 @@
 /* Single idempotent data correction after Worker deploy.
    Preserve group_id, RSVP status, update timestamps and event history. */
-const version="guest-role-corrections-2026-11-06-v2";
+const version="guest-role-corrections-2026-11-06-v3";
 const roles=[["Ariel Apritado","Butch's Friends"],["Rico Vergara","Butch's Friends"],["Ante Dimaculangan","Butch's Friends"],["Arnel Ozaeta","Butch's Friends"],["Eddie Cabungkal","Butch's Friends"],["Boyet Ona","Butch's Friends"],["Norma Destura","Tita"],["Maria Cecile Sevilleno","Tita"],["Rap Sevilleno","Tito"],["Jacquie Sevilleno","Tita"],["Grande Montalbo","Umpeng"],["Rosana Acquiatan","Umpeng"],["Mar Acquiatan","Umpeng"],["Malvin James Sevilleno","Kuya"]];
 const renames=[["Tito Rico","Rico","Tito"],["Tito Adan","Adam","Tito"],["Tito Adam","Adam","Tito"],["Adan","Adam","Tito"],["Jackie Sevilleno","Jacquie Sevilleno","Tita"]];
 let ready=false;
@@ -30,6 +30,7 @@ export async function ensureGuestMetadata(env){
     // Keep a legacy spelling as a searchable alias, not as a display name.
     for(const [alias,name] of [
       ["adam","Adam"],["adan","Adam"],["rico","Rico"],
+      ["tito adan","Adam"],["tito adam","Adam"],["tito rico","Rico"],
       ["jacquie","Jacquie Sevilleno"],["jacquie sevilleno","Jacquie Sevilleno"]
     ]){
       statements.push(env.DB.prepare(
@@ -37,11 +38,8 @@ export async function ensureGuestMetadata(env){
         "SELECT ?,id FROM rsvp_members WHERE display_name=?"
       ).bind(alias,name));
     }
-    // Titles belong in the role, not in the searchable name.
-    statements.push(env.DB.prepare(
-      "DELETE FROM rsvp_aliases WHERE alias LIKE 'tito %' AND member_id IN "+
-      "(SELECT id FROM rsvp_members WHERE display_name IN ('Adam','Rico'))"
-    ));
+    // The display name excludes 'Tito'; keeping a title-prefixed alias lets
+    // single-name guests distinguish themselves when 'Rico' is ambiguous.
     statements.push(env.DB.prepare(
       "INSERT OR IGNORE INTO rsvp_data_migrations(name,applied_at) VALUES(?,?)"
     ).bind(version,new Date().toISOString()));
