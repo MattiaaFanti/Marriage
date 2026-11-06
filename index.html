@@ -352,6 +352,27 @@ body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
 <script defer src="./cover-retouch.js?v=1"></script>
 </head>
 <body style="background-color:var(--burgundy,#63000a)">
+<div class="splash" id="opening" aria-label="Opening title" aria-hidden="false">
+ <div class="splash-inner"><div class="splash-mark" aria-label="M and K">M<span>&amp;</span>K</div><div class="splash-names">Mattia &amp; Kirsten</div><div class="splash-progress" role="img" aria-label="Mattia flies from Italy to Kirsten, who waits in the Philippines, as the invitation loads.">
+  <span class="splash-track" aria-hidden="true"><span class="splash-track-fill"></span></span>
+  <span class="splash-traveler" aria-hidden="true">
+    <span class="splash-it-flag"></span>
+    <img class="splash-groom-rider" src="./assets/splash-groom.webp?v=2" alt="" draggable="false">
+    <svg class="splash-plane" viewBox="0 0 70 35" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M3 21 Q19 15 57 16 L68 12 L64 21 L52 25 L22 27 L12 33 L6 32 L13 25 L2 25Z" fill="#f2d4a9" stroke="#b77835" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M22 18 L36 2 L42 3 L37 18 M24 26 L40 34 L48 33 L38 24" fill="#ddb077" stroke="#b77835" stroke-width="1.7" stroke-linejoin="round"/>
+      <circle cx="49" cy="19" r="2" fill="#78142b"/>
+    </svg>
+  </span>
+  <img class="splash-progress-bride" src="./assets/splash-bride.webp" alt="" aria-hidden="true" draggable="false">
+  <svg class="splash-ph-flag" viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M0 0 H30 V10 H0Z" fill="#1649a2"/><path d="M0 10 H30 V20 H0Z" fill="#cf263a"/>
+    <path d="M0 0 L17 10 L0 20Z" fill="#fff6de"/><circle cx="5.8" cy="10" r="2.4" fill="#e5b642"/>
+    <circle cx="2.5" cy="3" r="1.2" fill="#e5b642"/><circle cx="2.5" cy="17" r="1.2" fill="#e5b642"/><circle cx="13" cy="10" r="1.2" fill="#e5b642"/>
+  </svg>
+  <span class="splash-progress-heart" aria-hidden="true">♥</span>
+</div><div class="splash-date">12. 07. 2026</div></div>
+</div>
 <button id="wedding-audio-prompt" class="wedding-audio-prompt" type="button" hidden aria-label="Start wedding background music">Tap to start music</button>
 <script>
 /* Audible autoplay is attempted as early as possible.
@@ -385,27 +406,7 @@ body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
   attemptPlayback();
 })();
 </script>
-<div class="splash" id="opening" aria-label="Opening title" aria-hidden="false">
- <div class="splash-inner"><div class="splash-mark" aria-label="M and K">M<span>&amp;</span>K</div><div class="splash-names">Mattia &amp; Kirsten</div><div class="splash-progress" role="img" aria-label="Mattia flies from Italy to Kirsten, who waits in the Philippines, as the invitation loads.">
-  <span class="splash-track" aria-hidden="true"><span class="splash-track-fill"></span></span>
-  <span class="splash-traveler" aria-hidden="true">
-    <span class="splash-it-flag"></span>
-    <img class="splash-groom-rider" src="./assets/splash-groom.webp?v=2" alt="" draggable="false">
-    <svg class="splash-plane" viewBox="0 0 70 35" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M3 21 Q19 15 57 16 L68 12 L64 21 L52 25 L22 27 L12 33 L6 32 L13 25 L2 25Z" fill="#f2d4a9" stroke="#b77835" stroke-width="2" stroke-linejoin="round"/>
-      <path d="M22 18 L36 2 L42 3 L37 18 M24 26 L40 34 L48 33 L38 24" fill="#ddb077" stroke="#b77835" stroke-width="1.7" stroke-linejoin="round"/>
-      <circle cx="49" cy="19" r="2" fill="#78142b"/>
-    </svg>
-  </span>
-  <img class="splash-progress-bride" src="./assets/splash-bride.webp" alt="" aria-hidden="true" draggable="false">
-  <svg class="splash-ph-flag" viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <path d="M0 0 H30 V10 H0Z" fill="#1649a2"/><path d="M0 10 H30 V20 H0Z" fill="#cf263a"/>
-    <path d="M0 0 L17 10 L0 20Z" fill="#fff6de"/><circle cx="5.8" cy="10" r="2.4" fill="#e5b642"/>
-    <circle cx="2.5" cy="3" r="1.2" fill="#e5b642"/><circle cx="2.5" cy="17" r="1.2" fill="#e5b642"/><circle cx="13" cy="10" r="1.2" fill="#e5b642"/>
-  </svg>
-  <span class="splash-progress-heart" aria-hidden="true">♥</span>
-</div><div class="splash-date">12. 07. 2026</div></div>
-</div>
+
 <main>
  <div class="content">
   {% include pages/01-cover.html %}
