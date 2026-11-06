@@ -203,6 +203,16 @@ async function eventHistory(req,env){
   return json({events:records,next_before:hasMore?records[records.length-1].id:null});
 }
 
+
+/* Erase the history without changing RSVP decisions, updated_at or groups.
+   The operation is destructive and intentionally requires an explicit payload. */
+async function resetEventHistory(req,env){
+  const body=await parseBody(req);
+  if(body?.confirm!=="RESET EVENT HISTORY")return error("Confirmation required.",400);
+  const result=await env.DB.prepare("DELETE FROM rsvp_member_events").run();
+  return json({ok:true,deleted:Number(result.meta?.changes||0)});
+}
+
 function csvCell(v){
   let s=String(v??"");
   if(/^[\t\r\n =+\-@]/.test(s))s="'"+s;
@@ -223,6 +233,7 @@ export async function groupedRoutes(req,env){
   if(path==="/api/household/confirm"&&method==="POST")return submit(req,env);
   if(path==="/api/admin/households"&&method==="GET")return json(await overview(env));
   if(path==="/api/admin/households/events"&&method==="GET")return eventHistory(req,env);
+  if(path==="/api/admin/households/events/reset"&&method==="POST")return resetEventHistory(req,env);
   if(path==="/api/admin/households/export.csv"&&method==="GET")return exportCsv(env);
   if(path==="/api/admin/households/reset"&&method==="POST")return resetAll(req,env);
   const memberPath=path.match(/^\/api\/admin\/households\/member\/(\d+)$/);
