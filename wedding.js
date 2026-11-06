@@ -191,10 +191,10 @@
         error()+primary(state.busy?'Saving…':'Save responses','submit',state.busy)+primary('Edit responses','edit',state.busy);
     }
     if(state.step==='dress'){
-      html='<p class="rsvp-kicker">A LITTLE NOTE FROM US</p><h2 id="rsvpHeading">Celebrate in Burgundy</h2>'+
+      html='<p class="rsvp-kicker">A LITTLE NOTE FROM US</p><h2 id="rsvpHeading">Celebrate in <span class="rsvp-burgundy-word">Burgundy</span></h2>'+
         '<p>We would be delighted to see you dressed in your finest semi-formal attire, complemented by our suggested color palette.</p>'+
         '<p class="rsvp-palette-heading">SHADES OF RED TO BURGUNDY</p>'+paletteMarkup()+
-        '<p><strong>Keep it simple & elegant.</strong> Plain solid colors are preferred; no bold patterns.</p>'+
+
         primary('Consider it noted','done');
     }
     if(state.step==='regret'){
