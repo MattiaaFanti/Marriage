@@ -8,5 +8,5 @@ window.WEDDING_CONFIG = {
   directions: "Reception at Bahay Baluk-Baluk Restaurant inside Villas by Eco Hotels. Check the map for directions; transport details will follow.",
   mapUrl: "https://www.google.com/maps/place//data=!4m2!3m1!1s0x33bd6d880dbe4a37:0x81495d30b81ba6de",
   rsvpDeadline: "",
-  musicFile: "./wedding-orchestra.mp3"
+  musicFile: "./ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3"
 };

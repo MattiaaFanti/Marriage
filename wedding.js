@@ -12,101 +12,121 @@
   document.querySelectorAll('[data-wedding-date]').forEach(n => n.textContent = 'MONDAY · 07 DECEMBER 2026');
   document.querySelectorAll('[data-wedding-address]').forEach(n => n.textContent = cfg.address || 'Mataas Na Kahoy, Lipa, Batangas, Philippines');
   document.querySelectorAll('[data-map-link]').forEach(n => n.href = cfg.mapUrl);
-  /* Background music through Web Audio (not <audio> / <video>):
-     - No HTML media player or media-session metadata is registered.
-     - Audio is stopped when the page is hidden, backgrounded or closed.
-     - Browsers may still show an OS-level indicator; websites cannot override it.
-     - Mobile browsers may require a user gesture to allow sound. */
+  /* Web Audio rather than <audio>/<video>:
+     no embedded notification player; OS audio indicators are browser-controlled.
+     Decode the track independently of autoplay permission. Play on load when
+     permitted, otherwise as soon as the visitor interacts with the page.
+     Stop on hide, page close, freeze or background; never keep mobile audio running. */
   const AudioContextType = window.AudioContext || window.webkitAudioContext;
-  const backupMusic = './ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
+  const soundtrackUrl = cfg.musicFile || './ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
   let musicContext = null;
   let musicBuffer = null;
   let musicLoading = null;
   let musicSource = null;
   let musicGain = null;
-  let musicRevision = 0;
-  let resumeWhenVisible = false;
+  let audioUnlocked = false;
 
-  const musicVisible = () => document.visibilityState === 'visible' && !document.hidden;
+  const musicVisible = () => !document.hidden && document.visibilityState === 'visible';
+  const getMusicContext = () => {
+    if(!AudioContextType) return null;
+    if(!musicContext || musicContext.state === 'closed') musicContext = new AudioContextType();
+    return musicContext;
+  };
 
-  async function loadMusic(){
+  async function preloadMusic(){
     if(musicBuffer) return musicBuffer;
     if(musicLoading) return musicLoading;
-    musicLoading = (async()=>{
-      const sources = [...new Set([cfg.musicFile,backupMusic].filter(Boolean))];
-      for(const src of sources){
-        try{
-          const response = await fetch(src, {cache:'force-cache'});
-          if(!response.ok) continue;
-          const bytes = await response.arrayBuffer();
-          if(!bytes.byteLength) continue;
-          const decoded = await musicContext.decodeAudioData(bytes);
-          if(decoded){
-            musicBuffer=decoded;
-            return decoded;
-          }
-        }catch(_error){
-          // Try the existing repository MP3 if the configured track is unavailable.
-        }
-      }
-      return null;
-    })();
+    musicLoading = (async () => {
+      const ctx = getMusicContext();
+      if(!ctx) return null;
+      const response = await fetch(soundtrackUrl, {cache:'force-cache'});
+      if(!response.ok) throw new Error('Soundtrack could not be loaded: '+response.status);
+      const bytes = await response.arrayBuffer();
+      if(!bytes.byteLength) throw new Error('The soundtrack file is empty');
+      musicBuffer = await ctx.decodeAudioData(bytes);
+      return musicBuffer;
+    })().catch(() => null).finally(() => {
+      // Allow a retry after interrupted/network-failed downloads.
+      if(!musicBuffer) musicLoading = null;
+    });
     return musicLoading;
   }
 
-  async function startMusic(){
-    if(!AudioContextType || !musicVisible() || musicSource) return;
-    const revision = ++musicRevision;
-    try{
-      if(!musicContext || musicContext.state==='closed')musicContext=new AudioContextType();
-      await musicContext.resume();
-      const buffer=await loadMusic();
-      if(!buffer || revision!==musicRevision || !musicVisible() || musicSource) return;
-      const gain=musicContext.createGain();
-      gain.gain.value=0.18;
-      const source=musicContext.createBufferSource();
-      source.buffer=buffer;
-      source.loop=true;
-      source.connect(gain);
-      gain.connect(musicContext.destination);
-      musicSource=source;
-      musicGain=gain;
-      source.start(0);
-      resumeWhenVisible=true;
-    }catch(_error){
-      // A user interaction is required by some browsers before audible playback.
+  function playDecodedMusic(){
+    if(!musicVisible() || !musicBuffer || !musicContext ||
+       musicContext.state !== 'running' || musicSource) return;
+    const source = musicContext.createBufferSource();
+    const gain = musicContext.createGain();
+    source.buffer = musicBuffer;
+    source.loop = true;
+    gain.gain.value = 0.18;
+    source.connect(gain);
+    gain.connect(musicContext.destination);
+    musicSource = source;
+    musicGain = gain;
+    try{source.start(0);audioUnlocked = true;}
+    catch(_error){
+      musicSource = null;
+      musicGain = null;
+      try{source.disconnect();gain.disconnect();}catch(_ignored){}
     }
+  }
+
+  function startMusic(){
+    if(!musicVisible()) return;
+    const ctx = getMusicContext();
+    if(!ctx) return;
+    // Resume is invoked immediately from the gesture, before any asynchronous
+    // fetch/decode. This avoids the mobile autoplay deadlock of the old code.
+    if(ctx.state !== 'running'){
+      ctx.resume().then(() => {
+        if(musicVisible()) playDecodedMusic();
+      }).catch(() => {});
+    }
+    preloadMusic().then(() => {
+      if(musicVisible()) playDecodedMusic();
+    }).catch(() => {});
+    playDecodedMusic();
   }
 
   function stopMusic(){
-    musicRevision++;
     if(musicSource){
       try{musicSource.stop(0)}catch(_error){}
       try{musicSource.disconnect()}catch(_error){}
-      musicSource=null;
+      musicSource = null;
     }
     if(musicGain){
       try{musicGain.disconnect()}catch(_error){}
-      musicGain=null;
+      musicGain = null;
     }
-    if(musicContext && musicContext.state==='running')
-      musicContext.suspend().catch(()=>{});
+    if(musicContext && musicContext.state === 'running'){
+      musicContext.suspend().catch(() => {});
+    }
   }
 
+  // Load the real MP3 while suspended; autoplay restrictions should not stop
+  // the browser from fetching and decoding its bytes.
+  preloadMusic().then(() => {
+    if(musicVisible()) playDecodedMusic();
+  }).catch(() => {});
   startMusic();
   document.addEventListener('DOMContentLoaded', startMusic, {once:true});
   window.addEventListener('load', startMusic, {once:true});
-  // Browser policy fallback: the first natural gesture unlocks Web Audio.
-  for(const event of ['pointerdown','keydown','touchstart']){
-    document.addEventListener(event, startMusic, {passive:true});
+  for(const eventName of ['pointerdown','touchstart','touchend','click','keydown']){
+    document.addEventListener(eventName,startMusic,{passive:true});
   }
-  document.addEventListener('visibilitychange',()=>{
+  document.addEventListener('visibilitychange',() => {
     if(!musicVisible()) stopMusic();
-    else if(resumeWhenVisible) startMusic();
+    else if(audioUnlocked) startMusic();
   });
-  window.addEventListener('pagehide',()=>{
-    resumeWhenVisible=false;
+  window.addEventListener('pagehide',() => {
     stopMusic();
+    if(musicContext && musicContext.state !== 'closed'){
+      musicContext.close().catch(() => {});
+    }
+  });
+  window.addEventListener('pageshow',() => {
+    if(audioUnlocked && musicVisible()) startMusic();
   });
   document.addEventListener('freeze',stopMusic);
 
