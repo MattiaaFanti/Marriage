@@ -30,15 +30,35 @@
   soundtrack.setAttribute('playsinline','');
   document.body.appendChild(soundtrack);
   let playing = false;
+  soundtrack.addEventListener('playing',()=>{playing=true});
+  soundtrack.addEventListener('pause',()=>{playing=false});
   function startMusic(){
-    if (playing) return;
-    soundtrack.play().then(()=>playing=true).catch(()=>{});
+    if (document.hidden || playing || !soundtrack.paused) return;
+    try{
+      const attempt=soundtrack.play();
+      if(attempt && typeof attempt.then==='function'){
+        attempt.then(()=>{playing=true}).catch(error=>{
+          // A denied autoplay attempt is a browser decision; expose the actual
+          // error instead of silently suppressing it during diagnostics.
+          if(error?.name==='NotAllowedError'){
+            console.info('[Wedding audio] The browser blocked audible autoplay until a user gesture.');
+          }else if(error?.name!=='AbortError'){
+            console.warn('[Wedding audio] Could not start playback:',error?.name,error?.message);
+          }
+        });
+      }
+    }catch(error){
+      console.warn('[Wedding audio] Playback failed:',error?.name,error?.message);
+    }
   }
   startMusic();
   document.addEventListener('DOMContentLoaded', startMusic, {once:true});
   window.addEventListener('load', startMusic, {once:true});
-  // When audible autoplay is blocked, the first natural gesture starts music.
-  ['pointerdown','keydown','touchstart'].forEach(e=>document.addEventListener(e,startMusic,{passive:true}));
+  // On touchscreens user activation may occur at pointerup/touchend/click,
+  // rather than the pointerdown/touchstart used by the original fallback.
+  for(const eventName of ['pointerdown','pointerup','touchstart','touchend','click','keydown']){
+    document.addEventListener(eventName,startMusic,{capture:true,passive:true});
+  }
 
   // Stop when the visitor genuinely leaves the site or switches to another tab.
   // Do not stop on blur: mobile browsers can emit it while the page is visible.
