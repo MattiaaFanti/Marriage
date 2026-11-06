@@ -281,53 +281,6 @@ body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.splash{transition:none}.splash-track-fill{animation:none;transform:scaleX(1)}.splash-progress-bride{animation:none;left:83%}.splash-progress-heart{animation:none;opacity:1;transform:scale(1) translateY(-7px)}}
 
-/* Wedding scroll reveal — progressive enhancement: content remains visible without JavaScript. */
-.info-section .wedding-reveal,
-.wedding-transition.wedding-reveal,
-.site-footer.wedding-reveal {
-  opacity:0;
-  transform:translate3d(0,18px,0);
-  transition:opacity .78s cubic-bezier(.2,.65,.25,1),transform .78s cubic-bezier(.2,.65,.25,1);
-  transition-delay:var(--reveal-delay,0ms);
-}
-.info-section .wedding-reveal.is-revealed,
-.wedding-transition.wedding-reveal.is-revealed,
-.site-footer.wedding-reveal.is-revealed {
-  opacity:var(--reveal-opacity,1);
-  transform:translate3d(0,0,0);
-}
-.info-section .invitation-monogram.wedding-reveal{--reveal-opacity:.84}
-.info-section .venue-photo.wedding-reveal,
-.info-section .details-outfit-figure.wedding-reveal{
-  transition-duration:.88s;
-}
-.info-section .venue-photo.wedding-reveal.is-revealed:hover{
-  transform:translate3d(0,-3px,0) scale(1.008);
-  transition-duration:.3s;
-}
-.wedding-transition.wedding-reveal{
-  transform:translate3d(0,8px,0);
-  transition-duration:1s;
-}
-.details-palette-panel.is-revealed .details-color{
-  animation:wedding-swatch-arrive .52s both cubic-bezier(.2,.72,.22,1);
-  animation-delay:calc(var(--swatch-order,0) * 70ms + 80ms);
-}
-@keyframes wedding-swatch-arrive{
-  from{opacity:0;transform:translateY(8px) scale(.95)}
-  to{opacity:1;transform:translateY(0) scale(1)}
-}
-@media(prefers-reduced-motion:reduce){
-  .info-section .wedding-reveal,
-  .wedding-transition.wedding-reveal,
-  .site-footer.wedding-reveal,
-  .details-palette-panel.is-revealed .details-color{
-    opacity:1 !important;
-    transform:none !important;
-    transition:none !important;
-    animation:none !important;
-  }
-}
 /* Elegant, lightweight scroll transitions for every invitation page.
    Never move the split mobile cover artwork or distort portrait proportions. */
 .wedding-motion-on .wedding-reveal{
@@ -363,6 +316,33 @@ body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
  }
 }
 
+
+/* Fine details: gentle staggered swatch entrance and balanced photo hover. */
+.wedding-motion-on .details-palette-panel.is-visible .details-color{
+ animation:wedding-swatch-enter .5s cubic-bezier(.22,1,.36,1) both;
+ animation-delay:calc(var(--swatch-order,0)*65ms + 60ms);
+}
+@keyframes wedding-swatch-enter{
+ from{opacity:0;transform:translate3d(0,8px,0) scale(.95)}
+ to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+.wedding-motion-on .invitation-monogram.wedding-reveal.is-visible{opacity:.84}
+@media(hover:hover) and (pointer:fine){
+ .wedding-motion-on .venue-photo.wedding-reveal.is-visible:hover{
+  transform:translate3d(0,-3px,0) scale(1.008);
+  transition-duration:320ms;
+ }
+}
+@media(max-width:600px){
+ .wedding-motion-on .wedding-divider-reveal.is-visible .wedding-transition-art{
+  transform:scale(1.08);
+ }
+}
+@media(prefers-reduced-motion:reduce){
+ .wedding-motion-on .details-palette-panel.is-visible .details-color{
+  animation:none!important;opacity:1!important;transform:none!important;
+ }
+}
 </style>
 <script defer src="./config.js?v=20261106-rsvp-audio3"></script>
 <script defer src="./wedding.js?v=20261106-gesture-audio11"></script>
@@ -499,63 +479,6 @@ body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
 })();
 </script>
 
-<script>
-/* Reveal text, photographs, palette and decorative dividers as guests scroll.
-   Do not alter the opening cover art, RSVP modal, form controls or music player. */
-(function(){
- 'use strict';
- if (!('IntersectionObserver' in window) ||
-     (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
-
- const selectors=[
-   '.info-section h2','.info-section h3','.info-section h4',
-   '.info-section p','.info-section .venue-photo',
-   '.info-section .invitation-monogram','.info-section .action-link',
-   '.info-section .details-palette-panel','.info-section .details-outfit-figure',
-   '.info-section .invitation-divider','.info-section .event-divider',
-   '.info-section .family-inner-divider','.info-section .details-flourish',
-   '.info-section .details-title-rule','.info-section .final-fine-divider',
-   '.wedding-transition','.site-footer'
- ];
- const targets=Array.from(document.querySelectorAll(selectors.join(',')))
-   .filter(el=>!el.closest('.details-palette-panel') || el.classList.contains('details-palette-panel'));
- if(!targets.length)return;
- const show=el=>{
-   el.classList.add('is-revealed');
-   observer.unobserve(el);
- };
- const observer=new IntersectionObserver(entries=>{
-   for(const entry of entries){
-     if(entry.isIntersecting) show(entry.target);
-   }
- },{threshold:0.08,rootMargin:'0px 0px -5% 0px'});
-
- targets.forEach((el,i)=>{
-   const bounds=el.getBoundingClientRect();
-   // Do not flash invisible content that is already visible when JS starts.
-   const alreadyVisible=bounds.bottom > 0 && bounds.top < window.innerHeight*.93;
-   el.style.setProperty('--reveal-delay',((i%4)*55)+'ms');
-   if(el.classList.contains('details-palette-panel')){
-     el.querySelectorAll('.details-color').forEach((swatch,n)=>
-       swatch.style.setProperty('--swatch-order',String(n)));
-   }
-   el.classList.add('wedding-reveal');
-   if(alreadyVisible) el.classList.add('is-revealed');
-   else observer.observe(el);
- });
-
- document.addEventListener('focusin',event=>{
-   const el=event.target.closest?.('.wedding-reveal');
-   if(el && !el.classList.contains('is-revealed'))show(el);
- });
- window.addEventListener('pageshow',()=>{
-   targets.forEach(el=>{
-     if(el.getBoundingClientRect().top < window.innerHeight &&
-        el.getBoundingClientRect().bottom > 0)show(el);
-   });
- });
-})();
-</script>
-<script defer src="./assets/js/wedding-motion.js?v=1"></script>
+<script defer src="./assets/js/wedding-motion.js?v=2"></script>
 </body>
 </html>
