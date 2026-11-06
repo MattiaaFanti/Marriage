@@ -35,17 +35,8 @@
   soundtrack.volume = 0.18;
   soundtrack.setAttribute('playsinline','');
   if (!soundtrack.isConnected) document.body.appendChild(soundtrack);
-  // The early splash button is already present, and must not be duplicated.
-  const musicPrompt = document.getElementById('wedding-audio-prompt') || document.createElement('button');
-  if (!musicPrompt.isConnected) {
-    musicPrompt.type = 'button';
-    musicPrompt.className = 'wedding-audio-prompt';
-    musicPrompt.textContent = 'Tap to start music';
-    musicPrompt.hidden = true;
-    document.body.appendChild(musicPrompt);
-  }
   let playing = !soundtrack.paused && soundtrack.readyState >= 2;
-  soundtrack.addEventListener('playing',()=>{playing=true;musicPrompt.hidden=true});
+  soundtrack.addEventListener('playing',()=>{playing=true});
   soundtrack.addEventListener('pause',()=>{playing=false});
   function startMusic(){
     if (document.hidden || playing || !soundtrack.paused) return;
@@ -56,9 +47,9 @@
           // A denied autoplay attempt is a browser decision; expose the actual
           // error instead of silently suppressing it during diagnostics.
           if(error?.name==='NotAllowedError'){
-            // Audible autoplay cannot be forced on iOS/Android. Offer one tap.
-            if (!document.hidden) musicPrompt.hidden = false;
-            console.info('[Wedding audio] The browser requires a tap to begin audible playback.');
+            // Respect browser autoplay policies; allow the existing gesture
+            // fallback to retry without displaying any button.
+            console.info('[Wedding audio] Audible autoplay was blocked by the browser.');
           }else if(error?.name!=='AbortError'){
             console.warn('[Wedding audio] Could not start playback:',error?.name,error?.message);
           }
@@ -68,7 +59,6 @@
       console.warn('[Wedding audio] Playback failed:',error?.name,error?.message);
     }
   }
-  if (musicPrompt.dataset.bootstrapClick !== '1') musicPrompt.addEventListener('click', startMusic);
   startMusic();
   document.addEventListener('DOMContentLoaded', startMusic, {once:true});
   window.addEventListener('load', startMusic, {once:true});
