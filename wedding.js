@@ -35,14 +35,15 @@
   soundtrack.volume = 0.18;
   soundtrack.setAttribute('playsinline','');
   if (!soundtrack.isConnected) document.body.appendChild(soundtrack);
-  // Only displayed when the browser refuses audible autoplay (common on phones).
-  const musicPrompt = document.createElement('button');
-  musicPrompt.type = 'button';
-  musicPrompt.className = 'wedding-audio-prompt';
-  musicPrompt.textContent = 'Tap to play music';
-  musicPrompt.setAttribute('aria-label', 'Start wedding background music');
-  musicPrompt.hidden = true;
-  document.body.appendChild(musicPrompt);
+  // The early splash button is already present, and must not be duplicated.
+  const musicPrompt = document.getElementById('wedding-audio-prompt') || document.createElement('button');
+  if (!musicPrompt.isConnected) {
+    musicPrompt.type = 'button';
+    musicPrompt.className = 'wedding-audio-prompt';
+    musicPrompt.textContent = 'Tap to start music';
+    musicPrompt.hidden = true;
+    document.body.appendChild(musicPrompt);
+  }
   let playing = !soundtrack.paused && soundtrack.readyState >= 2;
   soundtrack.addEventListener('playing',()=>{playing=true;musicPrompt.hidden=true});
   soundtrack.addEventListener('pause',()=>{playing=false});
@@ -67,7 +68,7 @@
       console.warn('[Wedding audio] Playback failed:',error?.name,error?.message);
     }
   }
-  musicPrompt.addEventListener('click', startMusic);
+  if (musicPrompt.dataset.bootstrapClick !== '1') musicPrompt.addEventListener('click', startMusic);
   startMusic();
   document.addEventListener('DOMContentLoaded', startMusic, {once:true});
   window.addEventListener('load', startMusic, {once:true});
