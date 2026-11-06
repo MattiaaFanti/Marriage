@@ -61,3 +61,6 @@
  .rsvp-regret-copy{font-size:16px}
  .rsvp-cover-suggestions{top:40.5%}
 }
+
+/* Match the Burgundy title word to the Burgundy swatch on the white RSVP modal. */
+.rsvp-dialog .rsvp-burgundy-word{color:#850024}
