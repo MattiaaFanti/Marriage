@@ -135,6 +135,11 @@
         error()+(!api?'<p class="rsvp-demo">The RSVP database is not connected.</p>':'')+
         primary(state.busy?'Searching…':'Search invitation','lookup',state.busy)+'</form>';
     }
+    if(state.step==='lookupError'){
+      html='<p class="rsvp-kicker">YOUR INVITATION</p>'+
+        '<h2 id="rsvpHeading">Invitation unavailable</h2>'+
+        error()+primary('Search again','retrySearch');
+    }
     if(state.step==='choose'){
       html='<p class="rsvp-kicker">YOUR INVITATION</p><h2 id="rsvpHeading" class="rsvp-reserved-heading">'+reservedSeatBadge(state.members.length)+'</h2>'+
         '<p>Select Attending or Not Attending for <strong>every person</strong> on your invitation.</p>'+
@@ -286,7 +291,9 @@
             if(person.role){
               const role=document.createElement('small');role.textContent=person.role;btn.append(role);
             }
-            btn.addEventListener('click',()=>{
+            btn.addEventListener('click',event=>{
+              event.preventDefault();
+              event.stopPropagation();
               target.hidden=true;
               target.replaceChildren();
               input.value=person.name;
@@ -317,6 +324,7 @@
   }
   async function action(kind,options={}){
     if(kind==='close'){close();return;}
+    if(kind==='retrySearch'){open();return;}
     if(kind==='done'){state.step='done';render();return;}
     if(kind==='edit'){state.step='choose';render();return;}
     if(kind==='review'){
@@ -332,11 +340,11 @@
       const key=nameKey(name);
       if(!validName(key)){
         state.error='Enter at least 3 letters of your name or surname.';
-        state.step='find';render();if(silent)revealRsvp();return;
+        state.step=silent?'lookupError':'find';render();if(silent)revealRsvp();return;
       }
       if(!api){
         state.error='The RSVP database is not connected yet.';
-        state.step='find';render();if(silent)revealRsvp();return;
+        state.step=silent?'lookupError':'find';render();if(silent)revealRsvp();return;
       }
       const generation=lookupGeneration;
       state.busy=true;
@@ -362,7 +370,7 @@
         state.error='';
       }catch(e){
         if(generation!==lookupGeneration)return;
-        state.step='find';
+        state.step=silent?'lookupError':'find';
         state.error=e.message||'Search failed.';
       }finally{
         if(generation===lookupGeneration){
@@ -396,12 +404,17 @@
   }
   function open(name='',id=null){
     lookupGeneration++;
-    state.step='find';state.name=name;state.selectedId=id;state.token='';state.members=[];state.answers={};state.error='';state.busy=false;
-    // A selected suggestion bypasses the "Find your invitation" popup.
-    // Fetch the group invisibly and reveal only the ready RSVP screen.
-    if(String(name).trim()){
-      modal.hidden=true;
-      document.body.classList.remove('rsvp-open');
+    suggestionSerial++; // Invalidate any pending autocomplete.
+    const preselected=Boolean(String(name).trim());
+    // Hide synchronously, before any state change or async operation.
+    modal.hidden=true;
+    document.body.classList.remove('rsvp-open');
+    state.step=preselected?'loading':'find';
+    state.name=name;state.selectedId=id;state.token='';state.members=[];
+    state.answers={};state.error='';state.busy=false;
+    if(preselected){
+      // Never render a search form during a selected-guest lookup.
+      // Reveal only when group choices are ready (or on a real error).
       action('lookup',{silent:true});
     }else{
       render();
