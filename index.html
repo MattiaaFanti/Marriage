@@ -2,15 +2,16 @@
 layout: null
 ---
 <!doctype html>
-<html lang="en">
+<html lang="en" style="background-color:var(--burgundy,#63000a);color-scheme:light">
 <head>
 <meta charset="utf-8">
+<meta name="color-scheme" content="light">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
 <meta name="theme-color" content="#63000a">
 <!-- Match the first browser paint to the 2.5s intro; main slides retain their image-sampled color. -->
-<style>html,body{background-color:#63000a}</style>
+<style>html,body{background-color:var(--burgundy,#63000a);color-scheme:light}</style>
 <meta name="description" content="Wedding invitation of Kirsten and Mattia, 7 December 2026. RSVP and celebration details.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Mattia & Kirsten — Wedding Invitation">
@@ -350,7 +351,7 @@ body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
 <script defer src="./wedding.js?v=20261106-no-find-flash-v2"></script>
 <script defer src="./cover-retouch.js?v=1"></script>
 </head>
-<body>
+<body style="background-color:var(--burgundy,#63000a)">
 <button id="wedding-audio-prompt" class="wedding-audio-prompt" type="button" hidden aria-label="Start wedding background music">Tap to start music</button>
 <script>
 /* Audible autoplay is attempted as early as possible.
@@ -471,7 +472,15 @@ body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
       document.documentElement.style.setProperty("--burgundy",color);
       document.documentElement.style.setProperty("--wine",color);
       const meta=document.querySelector('meta[name="theme-color"]');
-      if(meta)meta.setAttribute("content",color);
+      if(meta){
+        const intro=document.getElementById("opening");
+        if(intro&&!intro.classList.contains("is-hidden")){
+          intro.addEventListener("transitionend",event=>{
+            if(event.target===intro&&event.propertyName==="opacity")
+              meta.setAttribute("content",color);
+          },{once:true});
+        }else meta.setAttribute("content",color);
+      }
     }catch(_error){
       // The unified burgundy fallback stays active if canvas is unavailable.
     }
