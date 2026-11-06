@@ -12,9 +12,15 @@
   document.querySelectorAll('[data-wedding-date]').forEach(n => n.textContent = 'MONDAY · 07 DECEMBER 2026');
   document.querySelectorAll('[data-wedding-address]').forEach(n => n.textContent = cfg.address || 'Mataas Na Kahoy, Lipa, Batangas, Philippines');
   document.querySelectorAll('[data-map-link]').forEach(n => n.href = cfg.mapUrl);
-  const soundtrack = document.createElement('audio');
+  // The opening HTML starts loading/playing this audio before deferred scripts run.
+  // Reuse that same player so the song is never restarted or duplicated.
+  const soundtrack = document.getElementById('wedding-soundtrack') || document.createElement('audio');
+  soundtrack.id = 'wedding-soundtrack';
   const backupMusic = './ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
-  soundtrack.src = cfg.musicFile || backupMusic;
+  const selectedMusic = cfg.musicFile || backupMusic;
+  if (!soundtrack.src || soundtrack.src !== new URL(selectedMusic, document.baseURI).href) {
+    soundtrack.src = selectedMusic;
+  }
   let musicFallbackUsed = false;
   soundtrack.addEventListener('error', () => {
     if (musicFallbackUsed) return;
@@ -28,9 +34,17 @@
   soundtrack.preload = 'auto';
   soundtrack.volume = 0.18;
   soundtrack.setAttribute('playsinline','');
-  document.body.appendChild(soundtrack);
-  let playing = false;
-  soundtrack.addEventListener('playing',()=>{playing=true});
+  if (!soundtrack.isConnected) document.body.appendChild(soundtrack);
+  // Only displayed when the browser refuses audible autoplay (common on phones).
+  const musicPrompt = document.createElement('button');
+  musicPrompt.type = 'button';
+  musicPrompt.className = 'wedding-audio-prompt';
+  musicPrompt.textContent = 'Tap to play music';
+  musicPrompt.setAttribute('aria-label', 'Start wedding background music');
+  musicPrompt.hidden = true;
+  document.body.appendChild(musicPrompt);
+  let playing = !soundtrack.paused && soundtrack.readyState >= 2;
+  soundtrack.addEventListener('playing',()=>{playing=true;musicPrompt.hidden=true});
   soundtrack.addEventListener('pause',()=>{playing=false});
   function startMusic(){
     if (document.hidden || playing || !soundtrack.paused) return;
@@ -41,7 +55,9 @@
           // A denied autoplay attempt is a browser decision; expose the actual
           // error instead of silently suppressing it during diagnostics.
           if(error?.name==='NotAllowedError'){
-            console.info('[Wedding audio] The browser blocked audible autoplay until a user gesture.');
+            // Audible autoplay cannot be forced on iOS/Android. Offer one tap.
+            if (!document.hidden) musicPrompt.hidden = false;
+            console.info('[Wedding audio] The browser requires a tap to begin audible playback.');
           }else if(error?.name!=='AbortError'){
             console.warn('[Wedding audio] Could not start playback:',error?.name,error?.message);
           }
@@ -51,6 +67,7 @@
       console.warn('[Wedding audio] Playback failed:',error?.name,error?.message);
     }
   }
+  musicPrompt.addEventListener('click', startMusic);
   startMusic();
   document.addEventListener('DOMContentLoaded', startMusic, {once:true});
   window.addEventListener('load', startMusic, {once:true});
