@@ -46,6 +46,10 @@ a{color:inherit}
 @keyframes splash-heart-appear{to{opacity:1;transform:scale(1) translateY(-7px)}}
 
 .splash-date{font-size:12px;letter-spacing:.32em}
+.wedding-audio-prompt[hidden]{display:none!important}
+.wedding-audio-prompt{position:fixed;z-index:1001;right:16px;bottom:max(16px,env(safe-area-inset-bottom,0px));border:1px solid #e8c89f;background:#650016;color:#fff3ea;border-radius:999px;box-shadow:0 3px 14px #25000977;padding:10px 16px;font:600 12px/1.3 'DM Sans',sans-serif;letter-spacing:.025em;cursor:pointer}
+.wedding-audio-prompt:focus-visible{outline:2px solid #f8e9dc;outline-offset:3px}
+
 .cover-screen{min-height:100svh;display:flex;align-items:flex-start;justify-content:center;background:var(--burgundy);overflow:hidden}
 .cover-stage{position:relative;width:min(100vw,66.6667svh,820px);aspect-ratio:2/3;flex:none;container-type:inline-size;overflow:hidden}
 .cover-art{display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:fill;image-rendering:auto}
@@ -263,10 +267,29 @@ a{color:inherit}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.splash{transition:none}.splash-track-fill{animation:none;transform:scaleX(1)}.splash-progress-bride{animation:none;left:83%}.splash-progress-heart{animation:none;opacity:1;transform:scale(1) translateY(-7px)}}
 </style>
 <script defer src="./config.js?v=20261106-rsvp-audio3"></script>
-<script defer src="./wedding.js?v=20261106-original-audio9"></script>
+<script defer src="./wedding.js?v=20261106-immediate-audio10"></script>
 <script defer src="./cover-retouch.js?v=1"></script>
 </head>
 <body>
+<script>
+/* Start loading and attempt audible playback immediately, including during the monogram splash.
+   Browser autoplay permissions still apply; wedding.js provides a first-tap fallback. */
+(function(){
+  const audio=document.createElement('audio');
+  audio.id='wedding-soundtrack';
+  audio.volume=0.18;
+  audio.loop=true;
+  audio.autoplay=true;
+  audio.preload='auto';
+  audio.setAttribute('playsinline','');
+  audio.src='./ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
+  document.body.appendChild(audio);
+  try{
+    const p=audio.play();
+    if(p && typeof p.catch==='function')p.catch(()=>{});
+  }catch(_ignored){}
+})();
+</script>
 <div class="splash" id="opening" aria-label="Opening title" aria-hidden="false">
  <div class="splash-inner"><div class="splash-mark" aria-label="M and K">M<span>&amp;</span>K</div><div class="splash-names">Mattia &amp; Kirsten</div><div class="splash-progress" role="img" aria-label="Our wedding invitation is loading. A bride moves toward a waiting groom."><span class="splash-track" aria-hidden="true"><span class="splash-track-fill"></span></span><img class="splash-progress-bride" src="./assets/splash-bride.webp" alt="" aria-hidden="true" draggable="false"><img class="splash-progress-groom" src="./assets/splash-groom.webp?v=2" alt="" aria-hidden="true" draggable="false"><span class="splash-progress-heart" aria-hidden="true">♥</span></div><div class="splash-date">12. 07. 2026</div></div>
 </div>
