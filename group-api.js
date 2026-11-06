@@ -61,7 +61,8 @@ async function candidates(q,env){
   const prefix=q+"%";
   const wordPrefix="% "+q+"%";
   const rows=await env.DB.prepare(
-    "SELECT DISTINCT m.id,m.group_id,m.display_name,m.role FROM rsvp_members m "+
+    "SELECT DISTINCT m.id,m.group_id,m.display_name,m.role,"+
+    "(SELECT COUNT(*) FROM rsvp_members seat WHERE seat.group_id=m.group_id) AS seat_count FROM rsvp_members m "+
     "LEFT JOIN rsvp_aliases a ON a.member_id=m.id "+
     "WHERE a.alias LIKE ? OR LOWER(m.display_name) LIKE ? OR LOWER(m.display_name) LIKE ? "+
     "ORDER BY m.display_name COLLATE NOCASE"
@@ -77,7 +78,7 @@ async function suggest(req,env){
   const hits=await candidates(q,env);
   // Show all matches; clicking one sends its precise member_id to lookup.
   return json({suggestions:hits.map(m=>({
-    id:m.id,name:m.display_name,role:m.role||""
+    id:m.id,name:m.display_name,role:m.role||"",seat_count:Number(m.seat_count)||1
   }))});
 }
 

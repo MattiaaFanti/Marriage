@@ -207,7 +207,23 @@
             if(!Number.isSafeInteger(person.id)||!person.name)continue;
             const btn=document.createElement('button');
             btn.type='button';btn.className='rsvp-suggestion-item';
-            const title=document.createElement('strong');title.textContent=person.name;btn.append(title);
+            const heading=document.createElement('span');heading.className='rsvp-suggestion-heading';
+            const title=document.createElement('strong');title.textContent=person.name;heading.append(title);
+            // Seat count comes from D1, not hard-coded in the public site.
+            const seats=Number(person.seat_count);
+            if(Number.isSafeInteger(seats)&&seats>0){
+              const badge=document.createElement('span');badge.className='rsvp-seat-badge';
+              badge.setAttribute('aria-label',seats+' '+(seats===1?'seat reserved':'seats reserved'));
+              const icons=document.createElement('span');icons.className='rsvp-seat-icons';
+              icons.setAttribute('aria-hidden','true');
+              const icon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6"/><path d="M5 12a2 2 0 0 0-2 2v5h18v-5a2 2 0 0 0-2-2"/><path d="M5 19v2M19 19v2"/></svg>';
+              icons.innerHTML=icon.repeat(Math.min(3,seats));
+              const label=document.createElement('span');label.className='rsvp-seat-label';
+              label.textContent=seats+' '+(seats===1?'seat reserved':'seats reserved');
+              badge.append(icons,label);
+              heading.append(badge);
+            }
+            btn.append(heading);
             if(person.role){
               const role=document.createElement('small');role.textContent=person.role;btn.append(role);
             }
