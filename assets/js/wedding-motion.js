@@ -15,6 +15,7 @@
       '.info-section .details-outfit-figure',
       '.info-section .event-divider','.info-section .family-inner-divider',
       '.info-section .invitation-divider','.info-section .details-flourish',
+      '.info-section .details-title-rule',
       '.info-section .final-fine-divider',
       '.info-section .action-link'
     ].join(',');
@@ -22,6 +23,10 @@
     const targets = selected.filter(el => {
       // An ancestor gets the effect instead of animating its children twice.
       return !selected.some(other => other !== el && other.contains(el));
+    });
+    // Animate the palette's six colors only after its ivory panel is in view.
+    root.querySelectorAll('.details-palette-panel .details-color').forEach((swatch,i)=>{
+      swatch.style.setProperty('--swatch-order',String(i));
     });
     // Each element is revealed once. Group delays are gentle and capped.
     let previousGroup = null;
@@ -64,6 +69,14 @@
       for (const el of [...targets, ...dividers]) el.classList.add('is-visible');
     }
     media.addEventListener?.('change', event => { if (event.matches) revealAll(); });
+    // Keyboard navigation must never focus a hidden RSVP link or button.
+    document.addEventListener('focusin',event=>{
+      const target=event.target.closest?.('.wedding-reveal');
+      if(target && !target.classList.contains('is-visible')){
+        target.classList.add('is-visible');
+        observer.unobserve(target);
+      }
+    });
     window.addEventListener('pagehide', revealAll, {once:true});
     window.addEventListener('pageshow', () => {
       for (const el of [...targets, ...dividers]) {
