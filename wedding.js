@@ -130,8 +130,8 @@
         '<div class="rsvp-group-members">'+state.members.map(m=>{
           const selected=state.answers[m.id]||'';
           return '<div class="rsvp-member"><div class="rsvp-member-name">'+enc(m.name)+(m.role?'<small>'+enc(m.role)+'</small>':'')+'</div>'+
-            '<div class="rsvp-member-options"><button type="button" data-member="'+Number(m.id)+'" data-status="attending" aria-pressed="'+(selected==='attending')+'" class="rsvp-choice rsvp-yes'+(selected==='attending'?' selected':'')+'">Attend</button>'+
-            '<button type="button" data-member="'+Number(m.id)+'" data-status="not_attending" aria-pressed="'+(selected==='not_attending')+'" class="rsvp-choice rsvp-no'+(selected==='not_attending'?' selected':'')+'">Not attend</button></div></div>';
+            '<div class="rsvp-member-options"><button type="button" data-member="'+Number(m.id)+'" data-status="attending" aria-pressed="'+(selected==='attending')+'" class="rsvp-choice rsvp-yes'+(selected==='attending'?' selected':'')+'"><span class="rsvp-choice-label">Attend</span><span class="rsvp-choice-note">See you there!</span></button>'+
+            '<button type="button" data-member="'+Number(m.id)+'" data-status="not_attending" aria-pressed="'+(selected==='not_attending')+'" class="rsvp-choice rsvp-no'+(selected==='not_attending'?' selected':'')+'"><span class="rsvp-choice-label">Not attend</span><span class="rsvp-choice-note">I\'ll be there in spirit</span></button></div></div>';
         }).join('')+'</div>'+
         '<p class="rsvp-progress">'+countAnswers()+' of '+state.members.length+' responses selected</p>'+error()+
         primary('Continue','review',countAnswers()!==state.members.length);

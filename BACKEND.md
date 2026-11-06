@@ -8,9 +8,9 @@
 
 ## Current configuration
 - `config.js` points to the live Worker. There is no preview-only mode when the API is reachable.
-- The 31 original groups and 50 guests were imported to D1. A one-time automatic migration adds the second family group of three guests (32 groups, 53 guests total) and updates four relatives' roles. No guest names are published in this repository.
-- Public lookup allows a unique 3+ character name/surname prefix and shows at most one suggestion; ambiguous searches reveal no names. Shared first/surnames across groups require a full name.
-- Results show everyone in the same group and require one Attend / Not attend selection per person.
+- The 31 original groups and 50 guests were imported to D1. A one-time automatic migration adds the second family group of three guests (34 groups, 53 guests total after splitting the original six-person group into three pairs) and updates four relatives' roles. No guest names are published in this repository.
+- Public lookup suggests all matching guests after at least three letters. Each suggestion includes the guest's role and the actual group seat count; selecting a name opens that guest's group RSVP.
+- The dashboard lists Mattia/Kirsten first; Butch/Alexis second; Raphiel/Rose Ann third; Maria Assunta/Jessica/Andrea fourth. Each group has its own invitation and every member must answer Attend / Not attend.
 - The confirmation token is a randomly generated, one-hour opaque session stored hashed in D1's existing `admin_sessions` table. It is not a password. No INVITE_SECRET or ADMIN_PASSWORD variable is needed.
 - The dashboard at **/admin** is intentionally passwordless and public, by request. Users can change each RSVP to Attend, Not attend, or Pending (Reset), and Reset all to Pending. All guests and replies are visible and editable by anyone who knows the address. Changes are logged in `rsvp_member_events`.
 - The Worker root redirects to the wedding website.

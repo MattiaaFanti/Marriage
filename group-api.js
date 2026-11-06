@@ -139,9 +139,11 @@ async function overview(env){
   const groups=(await env.DB.prepare(
     "SELECT id,group_code FROM rsvp_groups "+
     "ORDER BY CASE "+
-      "WHEN id=(SELECT MIN(id) FROM rsvp_groups WHERE group_code!='family-assunta-jessica-andrea-2026') THEN 0 "+
-      "WHEN group_code='family-assunta-jessica-andrea-2026' THEN 1 "+
-      "ELSE 2 END,id"
+      "WHEN id=(SELECT group_id FROM rsvp_members WHERE display_name='Mattia Fanti' LIMIT 1) THEN 0 "+
+      "WHEN group_code='initial-butch-alexis-2026' THEN 1 "+
+      "WHEN group_code='initial-raphiel-rose-ann-2026' THEN 2 "+
+      "WHEN group_code='family-assunta-jessica-andrea-2026' THEN 3 "+
+      "ELSE 4 END,id"
   ).all()).results;
   const people=(await env.DB.prepare("SELECT m.id,m.group_id,m.display_name,m.role,m.rsvp_status,m.updated_at FROM rsvp_members m ORDER BY m.group_id,m.id").all()).results;
   const summary={groups:groups.length,invited:people.length,pending:0,attending:0,not_attending:0};

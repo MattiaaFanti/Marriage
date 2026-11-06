@@ -1,6 +1,68 @@
 /* Single idempotent data correction after Worker deploy.
    Preserve group_id, RSVP status, update timestamps and event history. */
 const version="guest-role-corrections-2026-11-06-v4";
+
+/* Post-v4 migration: separate the original six-person invitation into three
+   two-person groups. Member IDs, RSVP statuses, updated_at, event history
+   and all existing aliases are preserved. Re-entrant / safe to re-run. */
+const splitVersion="wedding-initial-household-split-v1-2026-11-06";
+const splitGroup2="initial-butch-alexis-2026";
+const splitGroup3="initial-raphiel-rose-ann-2026";
+async function ensureInitialHouseholdSplit(env){
+  const prior=await env.DB.prepare(
+    "SELECT name FROM rsvp_data_migrations WHERE name=?"
+  ).bind(splitVersion).first();
+  if(prior)return;
+  const original=await env.DB.prepare(
+    "SELECT group_id FROM rsvp_members WHERE display_name=? LIMIT 1"
+  ).bind("Mattia Fanti").first();
+  if(!original)throw new Error("Original Mattia/Kirsten group is missing.");
+  const originalId=Number(original.group_id);
+  const sourceRows=(await env.DB.prepare(
+    "SELECT display_name FROM rsvp_members WHERE group_id=?"
+  ).bind(originalId).all()).results||[];
+  const names=new Set(sourceRows.map(row=>row.display_name));
+  const expected=[
+    "Mattia Fanti","Rosette Kirsten Santos","Butch Santos",
+    "Alexis Nicole Santos","Raphiel Bien Santos","Ann"
+  ];
+  // An unexpected membership must never silently mark the migration complete.
+  for(const guest of expected){
+    if(!names.has(guest))throw new Error("Cannot split initial group; missing guest: "+guest);
+  }
+  // Run the inserts, moves, rename and marker as a single D1 batch transaction.
+  const statements=[
+    env.DB.prepare("INSERT OR IGNORE INTO rsvp_groups(group_code) VALUES(?)")
+      .bind(splitGroup2),
+    env.DB.prepare("INSERT OR IGNORE INTO rsvp_groups(group_code) VALUES(?)")
+      .bind(splitGroup3),
+    env.DB.prepare(
+      "UPDATE rsvp_members SET group_id=(SELECT id FROM rsvp_groups WHERE group_code=?) "+
+      "WHERE group_id=? AND display_name IN (?,?)"
+    ).bind(splitGroup2,originalId,"Butch Santos","Alexis Nicole Santos"),
+    env.DB.prepare(
+      "UPDATE rsvp_members SET group_id=(SELECT id FROM rsvp_groups WHERE group_code=?) "+
+      "WHERE group_id=? AND display_name IN (?,?)"
+    ).bind(splitGroup3,originalId,"Raphiel Bien Santos","Ann"),
+    env.DB.prepare(
+      "UPDATE rsvp_members SET display_name=? "+
+      "WHERE group_id=(SELECT id FROM rsvp_groups WHERE group_code=?) AND display_name=?"
+    ).bind("Rose Ann Fisalbon",splitGroup3,"Ann")
+  ];
+  // Preserve the existing "ann" alias; add the correct new name and surname.
+  for(const alias of ["rose ann fisalbon","rose ann","rose","fisalbon"]){
+    statements.push(env.DB.prepare(
+      "INSERT OR IGNORE INTO rsvp_aliases(alias,member_id) "+
+      "SELECT ?,m.id FROM rsvp_members m JOIN rsvp_groups g ON g.id=m.group_id "+
+      "WHERE g.group_code=? AND m.display_name=?"
+    ).bind(alias,splitGroup3,"Rose Ann Fisalbon"));
+  }
+  statements.push(env.DB.prepare(
+    "INSERT OR IGNORE INTO rsvp_data_migrations(name,applied_at) VALUES(?,?)"
+  ).bind(splitVersion,new Date().toISOString()));
+  await env.DB.batch(statements);
+}
+
 const roles=[["Ariel Apritado","Butch's Friends"],["Rico Vergara","Butch's Friends"],["Ante Dimaculangan","Butch's Friends"],["Arnel Ozaeta","Butch's Friends"],["Eddie Cabungkal","Butch's Friends"],["Boyet Ona","Butch's Friends"],["Norma Destura","Tita"],["Maria Cecile Sevilleno","Tita"],["Rap Sevilleno","Tito"],["Jacquie Sevilleno","Tita"],["Grande Montalbo","Umpeng"],["Rosana Acquiatan","Umpeng"],["Mar Acquiatan","Umpeng"],["Malvin James Sevilleno","Kuya"],["Mario Buccola","Zio"],["Rita Morisco","Zia"],["Angelo Mallus","Zio"],["Patrizia Fanti","Zia"]];
 const renames=[["Tito Rico","Rico","Tito"],["Tito Adan","Adam","Tito"],["Tito Adam","Adam","Tito"],["Adan","Adam","Tito"],["Jackie Sevilleno","Jacquie Sevilleno","Tita"]];
 let ready=false;
@@ -15,7 +77,7 @@ export async function ensureGuestMetadata(env){
     const previous=await env.DB.prepare(
       "SELECT name FROM rsvp_data_migrations WHERE name=?"
     ).bind(version).first();
-    if(previous){ready=true;return;}
+    if(previous){await ensureInitialHouseholdSplit(env);ready=true;return;}
     const statements=[];
     for(const [oldName,newName,role] of renames){
       statements.push(env.DB.prepare(
@@ -66,6 +128,7 @@ export async function ensureGuestMetadata(env){
       "INSERT OR IGNORE INTO rsvp_data_migrations(name,applied_at) VALUES(?,?)"
     ).bind(version,new Date().toISOString()));
     await env.DB.batch(statements);
+    await ensureInitialHouseholdSplit(env);
     ready=true;
   })().finally(()=>{running=null});
   return running;
