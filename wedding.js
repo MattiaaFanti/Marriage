@@ -173,8 +173,8 @@
     });
   }
 
-  /* Autocomplete returns zero or one person. If multiple matches exist, the
-     server never discloses their names; users must supply more letters. */
+  /* From the third letter, show every matching person as a separate,
+     clickable suggestion, including matches across different RSVP groups. */
   let suggestionSerial=0;
   const suggestionTimers=new WeakMap();
   function bindSuggestions(input,target,onSelect){
@@ -196,15 +196,15 @@
             body:JSON.stringify({query:term}),cache:'no-store'
           });
           const data=await res.json().catch(()=>({}));
-          if(serial!==suggestionSerial||input.value.trim()!==term&&nameKey(input.value)!==term||!target.isConnected)return;
+          if(serial!==suggestionSerial||nameKey(input.value)!==term||!target.isConnected)return;
           if(!res.ok){
             if(res.status===429)showSuggestionNote(target,'Too many searches. Please try again later.');
             return;
           }
           const options=Array.isArray(data.suggestions)?data.suggestions:[];
-          if(options.length===1){
-            const person=options[0];
-            if(!Number.isSafeInteger(person.id)||!person.name)return;
+          const buttons=document.createDocumentFragment();
+          for(const person of options){
+            if(!Number.isSafeInteger(person.id)||!person.name)continue;
             const btn=document.createElement('button');
             btn.type='button';btn.className='rsvp-suggestion-item';
             const title=document.createElement('strong');title.textContent=person.name;btn.append(title);
@@ -217,10 +217,10 @@
               input.value=person.name;
               onSelect(person.name,person.id);
             });
-            target.replaceChildren(btn);target.hidden=false;
-          }else if(data.needs_more_letters){
-            showSuggestionNote(target,'More than one match. Type more letters to narrow your search.');
+            buttons.appendChild(btn);
           }
+          target.replaceChildren(buttons);
+          target.hidden=target.childElementCount===0;
         }catch(_error){ /* No names shown on temporary network failures. */ }
       },300);
       suggestionTimers.set(input,timer);

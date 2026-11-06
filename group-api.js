@@ -1,5 +1,5 @@
-/* Group RSVP API. Exact names or a single unambiguous 3+ letter suggestion.
-   Never return a list of partial-match guests from the public endpoint. */
+/* Group RSVP API. Exact lookup and all matching guest suggestions from 3 letters.
+   The user explicitly opted for showing every matching person in autocomplete. */
 import { ensureGuestMetadata } from "./guest-metadata.js";
 const textEncoder = new TextEncoder();
 const json = (data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
@@ -54,9 +54,9 @@ async function throttle(req,env,scope="guestlookup",limit=25){
   return Number(record?.attempts||0)<=limit;
 }
 
-/* Return up to TWO candidate rows solely to determine uniqueness;
-   the public response contains at most ONE, otherwise no names.
-   Only the start of a name or a word (such as a surname) can match. */
+/* Return all distinct matching guest names. Matching starts at the beginning
+   of a first name or another name component such as the surname.
+   No names are shown for input shorter than three characters. */
 async function candidates(q,env){
   const prefix=q+"%";
   const wordPrefix="% "+q+"%";
@@ -64,7 +64,7 @@ async function candidates(q,env){
     "SELECT DISTINCT m.id,m.group_id,m.display_name,m.role FROM rsvp_members m "+
     "LEFT JOIN rsvp_aliases a ON a.member_id=m.id "+
     "WHERE a.alias LIKE ? OR LOWER(m.display_name) LIKE ? OR LOWER(m.display_name) LIKE ? "+
-    "ORDER BY m.display_name COLLATE NOCASE LIMIT 2"
+    "ORDER BY m.display_name COLLATE NOCASE"
   ).bind(prefix,prefix,wordPrefix).all();
   return rows.results||[];
 }
@@ -75,10 +75,10 @@ async function suggest(req,env){
     return error("Too many searches. Try again later.",429);
   await ensureGuestMetadata(env);
   const hits=await candidates(q,env);
-  // Ambiguous input must never display an arbitrary name from the list.
-  if(hits.length!==1)return json({suggestions:[],needs_more_letters:hits.length>1});
-  const m=hits[0];
-  return json({suggestions:[{id:m.id,name:m.display_name,role:m.role||""}],needs_more_letters:false});
+  // Show all matches; clicking one sends its precise member_id to lookup.
+  return json({suggestions:hits.map(m=>({
+    id:m.id,name:m.display_name,role:m.role||""
+  }))});
 }
 
 async function lookup(req,env){
@@ -100,7 +100,7 @@ async function lookup(req,env){
     if(!found.length){
       const matches=await candidates(name,env);
       if(matches.length===1)found=[{group_id:matches[0].group_id}];
-      if(matches.length>1)return error("Several guests match. Please type more letters.",409);
+      if(matches.length>1)return error("Several guests match. Please choose your name from the suggestions.",409);
     }
   }
   if(!found.length)return error("Invitation not found. Check the spelling of your name.",404);

@@ -43,9 +43,9 @@
 .rsvp-regret-signature{display:flex;flex-direction:column;gap:9px;margin-top:23px;color:#6a3445;letter-spacing:.13em;font:500 12px/1.3 Georgia,serif}
 .rsvp-regret-signature strong{font:italic 28px/1.2 Georgia,serif;letter-spacing:0;color:#602238}
 
-/* At most one name suggestion is displayed, and only for unique matches. */
+/* All matching guests are shown after three letters; long lists scroll within the suggestion box. */
 .rsvp-suggestions[hidden],.rsvp-cover-suggestions[hidden]{display:none!important}
-.rsvp-suggestions{background:#fffdf9;border:1px solid #ead7dc;border-radius:10px;box-shadow:0 9px 22px #45202e25;overflow:hidden;text-align:left}
+.rsvp-suggestions{background:#fffdf9;border:1px solid #ead7dc;border-radius:10px;box-shadow:0 9px 22px #45202e25;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;max-height:min(300px,42dvh);text-align:left}
 .rsvp-modal-suggestions:not([hidden]){margin:7px 0 0}
 .rsvp-suggestion-item{display:flex;flex-direction:column;text-align:left;gap:2px;width:100%;border:0;padding:12px 15px;background:#fffdf9;color:#62273b;font:600 13px/1.3 system-ui,-apple-system,sans-serif;cursor:pointer}
 .rsvp-suggestion-item:hover,.rsvp-suggestion-item:focus-visible{background:#f8edf0;outline:2px solid #b98697;outline-offset:-2px}
