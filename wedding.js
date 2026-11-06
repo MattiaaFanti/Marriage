@@ -12,123 +12,133 @@
   document.querySelectorAll('[data-wedding-date]').forEach(n => n.textContent = 'MONDAY · 07 DECEMBER 2026');
   document.querySelectorAll('[data-wedding-address]').forEach(n => n.textContent = cfg.address || 'Mataas Na Kahoy, Lipa, Batangas, Philippines');
   document.querySelectorAll('[data-map-link]').forEach(n => n.href = cfg.mapUrl);
-  /* Web Audio rather than <audio>/<video>:
-     no embedded notification player; OS audio indicators are browser-controlled.
-     Decode the track independently of autoplay permission. Play on load when
-     permitted, otherwise as soon as the visitor interacts with the page.
-     Stop on hide, page close, freeze or background; never keep mobile audio running. */
-  const AudioContextType = window.AudioContext || window.webkitAudioContext;
-  const soundtrackUrl = cfg.musicFile || './ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
-  let musicContext = null;
-  let musicBuffer = null;
-  let musicLoading = null;
-  let musicSource = null;
-  let musicGain = null;
-  let audioUnlocked = false;
+  /* Non-media-element soundtrack to avoid native "Now Playing" UI.
+     Browser policy may delay audible autoplay until the first user gesture.
+     The engine fetches/decodes independently and unlocks iOS on interaction.
+     Never continues into the background. */
+  const AudioContextType=window.AudioContext||window.webkitAudioContext;
+  const soundtrackUrl=cfg.musicFile||'./ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
+  let soundContext=null;
+  let soundBuffer=null;
+  let soundFetch=null;
+  let soundSource=null;
+  let soundGain=null;
+  let soundUnlocked=false;
+  let soundInvalidation=0;
+  let soundWasPlaying=false;
+  const visible=()=>document.visibilityState==='visible'&&!document.hidden;
 
-  const musicVisible = () => !document.hidden && document.visibilityState === 'visible';
-  const getMusicContext = () => {
-    if(!AudioContextType) return null;
-    if(!musicContext || musicContext.state === 'closed') musicContext = new AudioContextType();
-    return musicContext;
-  };
+  function contextForMusic(){
+    if(!AudioContextType)return null;
+    if(!soundContext||soundContext.state==='closed'){
+      soundContext=new AudioContextType();
+      soundContext.addEventListener?.('statechange',()=>{
+        if(soundContext?.state==='running'&&visible())startDecodedSound();
+      });
+    }
+    return soundContext;
+  }
 
-  async function preloadMusic(){
-    if(musicBuffer) return musicBuffer;
-    if(musicLoading) return musicLoading;
-    musicLoading = (async () => {
-      const ctx = getMusicContext();
-      if(!ctx) return null;
-      const response = await fetch(soundtrackUrl, {cache:'force-cache'});
-      if(!response.ok) throw new Error('Soundtrack could not be loaded: '+response.status);
-      const bytes = await response.arrayBuffer();
-      if(!bytes.byteLength) throw new Error('The soundtrack file is empty');
-      musicBuffer = await ctx.decodeAudioData(bytes);
-      return musicBuffer;
-    })().catch(() => null).finally(() => {
-      // Allow a retry after interrupted/network-failed downloads.
-      if(!musicBuffer) musicLoading = null;
+  async function fetchAndDecodeSound(){
+    if(soundBuffer)return soundBuffer;
+    if(soundFetch)return soundFetch;
+    soundFetch=(async()=>{
+      const response=await fetch(soundtrackUrl,{cache:'no-cache'});
+      if(!response.ok)throw new Error('MP3 unavailable: HTTP '+response.status);
+      const bytes=await response.arrayBuffer();
+      if(!bytes.byteLength)throw new Error('MP3 is empty');
+      const context=contextForMusic();
+      if(!context)throw new Error('Web Audio unavailable');
+      soundBuffer=await context.decodeAudioData(bytes);
+      return soundBuffer;
+    })().catch(error=>{
+      console.warn('Wedding soundtrack could not be decoded:',error?.message);
+      return null;
+    }).finally(()=>{if(!soundBuffer)soundFetch=null;});
+    return soundFetch;
+  }
+
+  function startDecodedSound(){
+    if(!visible()||!soundBuffer||soundSource||soundContext?.state!=='running')return;
+    try{
+      const node=soundContext.createBufferSource();
+      const gain=soundContext.createGain();
+      node.buffer=soundBuffer;
+      node.loop=true;
+      gain.gain.value=0.25;
+      node.connect(gain);
+      gain.connect(soundContext.destination);
+      node.start(0);
+      soundSource=node;
+      soundGain=gain;
+      soundUnlocked=true;
+      soundWasPlaying=true;
+    }catch(error){
+      console.warn('Wedding soundtrack playback failed:',error?.message);
+    }
+  }
+  function unlockSound(event){
+    if(!visible())return;
+    const ctx=contextForMusic();
+    if(!ctx)return;
+    // Safari/iOS unlock: schedule a silent one-shot *inside* the real gesture,
+    // without waiting for MP3 network or decoding promises.
+    if(event?.isTrusted&&ctx.state!=='running'){
+      try{
+        const primer=ctx.createBuffer(1,1,ctx.sampleRate);
+        const oneShot=ctx.createBufferSource();
+        oneShot.buffer=primer;
+        oneShot.connect(ctx.destination);
+        oneShot.start(0);
+        oneShot.onended=()=>{try{oneShot.disconnect()}catch(_){}};
+      }catch(_error){}
+    }
+    if(ctx.state!=='running'){
+      try{
+        const pending=ctx.resume();
+        pending?.then(()=>{if(visible())startDecodedSound()}).catch(()=>{});
+      }catch(_error){}
+    }
+    const generation=soundInvalidation;
+    fetchAndDecodeSound().then(()=>{
+      if(generation===soundInvalidation&&visible())startDecodedSound();
     });
-    return musicLoading;
+    startDecodedSound();
   }
-
-  function playDecodedMusic(){
-    if(!musicVisible() || !musicBuffer || !musicContext ||
-       musicContext.state !== 'running' || musicSource) return;
-    const source = musicContext.createBufferSource();
-    const gain = musicContext.createGain();
-    source.buffer = musicBuffer;
-    source.loop = true;
-    gain.gain.value = 0.18;
-    source.connect(gain);
-    gain.connect(musicContext.destination);
-    musicSource = source;
-    musicGain = gain;
-    try{source.start(0);audioUnlocked = true;}
-    catch(_error){
-      musicSource = null;
-      musicGain = null;
-      try{source.disconnect();gain.disconnect();}catch(_ignored){}
+  function stopSound(){
+    soundInvalidation++;
+    if(soundSource){
+      try{soundSource.stop(0);soundSource.disconnect()}catch(_error){}
+      soundSource=null;
     }
+    if(soundGain){
+      try{soundGain.disconnect()}catch(_error){}
+      soundGain=null;
+    }
+    if(soundContext?.state==='running')
+      soundContext.suspend().catch(()=>{});
   }
-
-  function startMusic(){
-    if(!musicVisible()) return;
-    const ctx = getMusicContext();
-    if(!ctx) return;
-    // Resume is invoked immediately from the gesture, before any asynchronous
-    // fetch/decode. This avoids the mobile autoplay deadlock of the old code.
-    if(ctx.state !== 'running'){
-      ctx.resume().then(() => {
-        if(musicVisible()) playDecodedMusic();
-      }).catch(() => {});
-    }
-    preloadMusic().then(() => {
-      if(musicVisible()) playDecodedMusic();
-    }).catch(() => {});
-    playDecodedMusic();
+  // Attempt immediate playback wherever the browser allows it.
+  fetchAndDecodeSound().then(()=>{if(visible())unlockSound()});
+  unlockSound();
+  document.addEventListener('DOMContentLoaded',()=>unlockSound(),{once:true});
+  window.addEventListener('load',()=>unlockSound(),{once:true});
+  for(const type of ['pointerdown','touchend','click','keydown']){
+    document.addEventListener(type,unlockSound,{capture:true,passive:true});
   }
-
-  function stopMusic(){
-    if(musicSource){
-      try{musicSource.stop(0)}catch(_error){}
-      try{musicSource.disconnect()}catch(_error){}
-      musicSource = null;
-    }
-    if(musicGain){
-      try{musicGain.disconnect()}catch(_error){}
-      musicGain = null;
-    }
-    if(musicContext && musicContext.state === 'running'){
-      musicContext.suspend().catch(() => {});
-    }
-  }
-
-  // Load the real MP3 while suspended; autoplay restrictions should not stop
-  // the browser from fetching and decoding its bytes.
-  preloadMusic().then(() => {
-    if(musicVisible()) playDecodedMusic();
-  }).catch(() => {});
-  startMusic();
-  document.addEventListener('DOMContentLoaded', startMusic, {once:true});
-  window.addEventListener('load', startMusic, {once:true});
-  for(const eventName of ['pointerdown','touchstart','touchend','click','keydown']){
-    document.addEventListener(eventName,startMusic,{passive:true});
-  }
-  document.addEventListener('visibilitychange',() => {
-    if(!musicVisible()) stopMusic();
-    else if(audioUnlocked) startMusic();
+  document.addEventListener('visibilitychange',()=>{
+    if(!visible())stopSound();
+    else if(soundUnlocked||soundWasPlaying)unlockSound();
   });
-  window.addEventListener('pagehide',() => {
-    stopMusic();
-    if(musicContext && musicContext.state !== 'closed'){
-      musicContext.close().catch(() => {});
-    }
+  window.addEventListener('pagehide',()=>{
+    stopSound();
+    if(soundContext&&soundContext.state!=='closed')
+      soundContext.close().catch(()=>{});
   });
-  window.addEventListener('pageshow',() => {
-    if(audioUnlocked && musicVisible()) startMusic();
+  window.addEventListener('pageshow',()=>{
+    if(visible()&&(soundUnlocked||soundWasPlaying))unlockSound();
   });
-  document.addEventListener('freeze',stopMusic);
+  document.addEventListener('freeze',stopSound);
 
   // All guest data is queried from D1; no private guest list is embedded in GitHub Pages.
   const modal=document.createElement('div');
