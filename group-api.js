@@ -180,6 +180,29 @@ async function resetAll(req,env){
   ]);
   return json({ok:true,updated:Number(count?.total||0)});
 }
+
+/* Read-only timeline: all guest submissions and manual changes, newest first.
+   Pagination uses the monotonic event ID to avoid duplicates across refreshes. */
+async function eventHistory(req,env){
+  await ensureGuestMetadata(env);
+  const url=new URL(req.url);
+  const limitRaw=Number(url.searchParams.get("limit")||30);
+  const limit=Number.isInteger(limitRaw)?Math.min(60,Math.max(1,limitRaw)):30;
+  const beforeRaw=url.searchParams.get("before");
+  const before=beforeRaw&&/^[1-9]\d*$/.test(beforeRaw)?Number(beforeRaw):null;
+  const sql="SELECT e.id,e.member_id,e.previous_status,e.status,e.source,e.received_at,"+
+    "m.display_name,m.role,g.group_code "+
+    "FROM rsvp_member_events e "+
+    "JOIN rsvp_members m ON m.id=e.member_id "+
+    "JOIN rsvp_groups g ON g.id=m.group_id "+
+    (before?"WHERE e.id<? ":"")+
+    "ORDER BY e.id DESC LIMIT ?";
+  const rows=(await (before?env.DB.prepare(sql).bind(before,limit+1):env.DB.prepare(sql).bind(limit+1)).all()).results;
+  const hasMore=rows.length>limit;
+  const records=rows.slice(0,limit);
+  return json({events:records,next_before:hasMore?records[records.length-1].id:null});
+}
+
 function csvCell(v){
   let s=String(v??"");
   if(/^[\t\r\n =+\-@]/.test(s))s="'"+s;
@@ -199,6 +222,7 @@ export async function groupedRoutes(req,env){
   if(path==="/api/household/lookup"&&method==="POST")return lookup(req,env);
   if(path==="/api/household/confirm"&&method==="POST")return submit(req,env);
   if(path==="/api/admin/households"&&method==="GET")return json(await overview(env));
+  if(path==="/api/admin/households/events"&&method==="GET")return eventHistory(req,env);
   if(path==="/api/admin/households/export.csv"&&method==="GET")return exportCsv(env);
   if(path==="/api/admin/households/reset"&&method==="POST")return resetAll(req,env);
   const memberPath=path.match(/^\/api\/admin\/households\/member\/(\d+)$/);
