@@ -334,7 +334,7 @@ a{color:inherit}
 }
 </style>
 <script defer src="./config.js?v=20261106-rsvp-audio3"></script>
-<script defer src="./wedding.js?v=20261106-no-find-flash-v2"></script>
+<script defer src="./wedding.js?v=20261107-original-native-audio-1"></script>
 <script defer src="./cover-retouch.js?v=1"></script>
 </head>
 <body style="background-color:var(--burgundy,#63000a)">
@@ -359,31 +359,6 @@ a{color:inherit}
   <span class="splash-progress-heart" aria-hidden="true">♥</span>
 </div><div class="splash-date">12. 07. 2026</div></div>
 </div>
-<audio id="wedding-soundtrack" src="./ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3" autoplay loop preload="auto" playsinline aria-hidden="true" style="display:none"></audio>
-<script>
-/* Start the soundtrack from the opening splash without any visible audio control.
-   Browsers may block audible autoplay, so the RSVP script also retries when
-   activation becomes available. */
-(function(){
-  const audio=document.getElementById('wedding-soundtrack');
-  audio.volume=0.18;
-  try{
-    const result=audio.play();
-    if(result && typeof result.catch==='function'){
-      result.catch(error=>{
-        if(error?.name==='NotAllowedError'){
-          console.info('[Wedding audio] Browser blocked audible autoplay; awaiting permitted playback.');
-        }else if(error?.name!=='AbortError'){
-          console.warn('[Wedding audio] Autoplay failed:',error?.name,error?.message);
-        }
-      });
-    }
-  }catch(error){
-    console.warn('[Wedding audio] Autoplay error:',error?.name,error?.message);
-  }
-})();
-</script>
-
 <main>
  <div class="content">
   {% include pages/01-cover.html %}

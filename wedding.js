@@ -12,15 +12,10 @@
   document.querySelectorAll('[data-wedding-date]').forEach(n => n.textContent = 'MONDAY · 07 DECEMBER 2026');
   document.querySelectorAll('[data-wedding-address]').forEach(n => n.textContent = cfg.address || 'Mataas Na Kahoy, Lipa, Batangas, Philippines');
   document.querySelectorAll('[data-map-link]').forEach(n => n.href = cfg.mapUrl);
-  // The opening HTML starts loading/playing this audio before deferred scripts run.
-  // Reuse that same player so the song is never restarted or duplicated.
-  const soundtrack = document.getElementById('wedding-soundtrack') || document.createElement('audio');
-  soundtrack.id = 'wedding-soundtrack';
+  // Restored original pre-Web-Audio player (commit 87f68c7).
+  const soundtrack = document.createElement('audio');
   const backupMusic = './ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
-  const selectedMusic = cfg.musicFile || backupMusic;
-  if (!soundtrack.src || soundtrack.src !== new URL(selectedMusic, document.baseURI).href) {
-    soundtrack.src = selectedMusic;
-  }
+  soundtrack.src = cfg.musicFile || backupMusic;
   let musicFallbackUsed = false;
   soundtrack.addEventListener('error', () => {
     if (musicFallbackUsed) return;
@@ -34,42 +29,21 @@
   soundtrack.preload = 'auto';
   soundtrack.volume = 0.18;
   soundtrack.setAttribute('playsinline','');
-  if (!soundtrack.isConnected) document.body.appendChild(soundtrack);
-  let playing = !soundtrack.paused && soundtrack.readyState >= 2;
-  soundtrack.addEventListener('playing',()=>{playing=true});
-  soundtrack.addEventListener('pause',()=>{playing=false});
+  document.body.appendChild(soundtrack);
+  let playing = false;
   function startMusic(){
-    if (document.hidden || playing || !soundtrack.paused) return;
-    try{
-      const attempt=soundtrack.play();
-      if(attempt && typeof attempt.then==='function'){
-        attempt.then(()=>{playing=true}).catch(error=>{
-          // A denied autoplay attempt is a browser decision; expose the actual
-          // error instead of silently suppressing it during diagnostics.
-          if(error?.name==='NotAllowedError'){
-            // Respect browser autoplay policies; allow the existing gesture
-            // fallback to retry without displaying any button.
-            console.info('[Wedding audio] Audible autoplay was blocked by the browser.');
-          }else if(error?.name!=='AbortError'){
-            console.warn('[Wedding audio] Could not start playback:',error?.name,error?.message);
-          }
-        });
-      }
-    }catch(error){
-      console.warn('[Wedding audio] Playback failed:',error?.name,error?.message);
-    }
+    if (playing) return;
+    soundtrack.play().then(()=>playing=true).catch(()=>{});
   }
   startMusic();
   document.addEventListener('DOMContentLoaded', startMusic, {once:true});
   window.addEventListener('load', startMusic, {once:true});
-  // On touchscreens user activation may occur at pointerup/touchend/click,
-  // rather than the pointerdown/touchstart used by the original fallback.
-  for(const eventName of ['pointerdown','pointerup','touchstart','touchend','click','keydown']){
-    document.addEventListener(eventName,startMusic,{capture:true,passive:true});
-  }
+  // When audible autoplay is blocked, the first natural gesture starts music.
+  ['pointerdown','keydown','touchstart'].forEach(e=>document.addEventListener(e,startMusic,{passive:true}));
 
-  // Stop when the visitor genuinely leaves the site or switches to another tab.
-  // Do not stop on blur: mobile browsers can emit it while the page is visible.
+  // Only extend the original successful HTMLAudioElement implementation with
+  // lifecycle cleanup. Do not stop on blur; it fires without leaving the page.
+  soundtrack.addEventListener('pause',()=>{playing=false});
   function stopMusic(){
     try{soundtrack.pause()}catch(_error){}
     playing=false;
@@ -79,7 +53,9 @@
     else startMusic();
   });
   window.addEventListener('pagehide',stopMusic);
-  window.addEventListener('pageshow',()=>{if(!document.hidden)startMusic()});
+  window.addEventListener('pageshow',()=>{
+    if(!document.hidden)startMusic();
+  });
 
   // All guest data is queried from D1; no private guest list is embedded in GitHub Pages.
   const modal=document.createElement('div');
