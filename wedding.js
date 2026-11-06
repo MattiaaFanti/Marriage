@@ -12,64 +12,59 @@
   document.querySelectorAll('[data-wedding-date]').forEach(n => n.textContent = 'MONDAY · 07 DECEMBER 2026');
   document.querySelectorAll('[data-wedding-address]').forEach(n => n.textContent = cfg.address || 'Mataas Na Kahoy, Lipa, Batangas, Philippines');
   document.querySelectorAll('[data-map-link]').forEach(n => n.href = cfg.mapUrl);
-  /* Same HTML audio player used before the Web Audio change.
-     Autoplay attempts on page entry; some browsers still restrict it.
-     Pauses whenever the page loses visibility or the browser/app is left. */
-  const soundtrack = document.createElement('audio');
-  const backupMusic = './ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
-  soundtrack.src = cfg.musicFile || backupMusic;
-  soundtrack.autoplay = true;
-  soundtrack.loop = true;
-  soundtrack.preload = 'auto';
-  soundtrack.controls = false;
-  soundtrack.volume = 0.18;
-  soundtrack.setAttribute('playsinline','');
-  soundtrack.setAttribute('webkit-playsinline','');
-  soundtrack.setAttribute('aria-hidden','true');
-  soundtrack.style.display = 'none';
-  document.body.appendChild(soundtrack);
-
-  let musicFallbackUsed = false;
-  soundtrack.addEventListener('error', () => {
-    if(musicFallbackUsed)return;
-    musicFallbackUsed = true;
-    soundtrack.src = backupMusic;
-    soundtrack.load();
+  /* HTML media playback restored. The HTML <audio> element is declared
+     before the splash so downloading/autoplay can begin during parsing.
+     Stop only when the document is actually hidden or unloaded; window.blur
+     was previously able to silence audible autoplay while still on page. */
+  const backupMusic='./ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
+  const soundtrack=document.getElementById('wedding-soundtrack');
+  if(!soundtrack){
+    console.warn('Wedding soundtrack element is unavailable.');
+  }else{
+    let musicFallbackUsed=false;
+    soundtrack.loop=true;
+    soundtrack.autoplay=true;
+    soundtrack.preload='auto';
+    soundtrack.controls=false;
+    soundtrack.volume=0.18;
+    soundtrack.addEventListener('error',()=>{
+      if(musicFallbackUsed)return;
+      musicFallbackUsed=true;
+      soundtrack.src=backupMusic;
+      soundtrack.load();
+      startMusic();
+    });
+    const musicVisible=()=>!document.hidden&&document.visibilityState!=='hidden';
+    function stopMusic(){
+      try{soundtrack.pause()}catch(_error){}
+    }
+    function startMusic(){
+      if(!musicVisible()||!soundtrack.paused)return;
+      try{
+        const result=soundtrack.play();
+        if(result&&typeof result.then==='function'){
+          result.then(()=>{if(!musicVisible())stopMusic();}).catch(()=>{
+            // Browsers may require a genuine user gesture for unmuted autoplay.
+          });
+        }
+      }catch(_error){}
+    }
+    // Playback is requested while the 2.5-second splash is visible.
     startMusic();
-  });
-
-  const musicVisible=()=>document.visibilityState==='visible'&&!document.hidden;
-  function stopMusic(){
-    try{soundtrack.pause()}catch(_error){}
+    document.addEventListener('DOMContentLoaded',startMusic,{once:true});
+    window.addEventListener('load',startMusic,{once:true});
+    soundtrack.addEventListener('canplay',startMusic);
+    window.addEventListener('pageshow',startMusic);
+    document.addEventListener('visibilitychange',()=>{
+      if(musicVisible())startMusic();else stopMusic();
+    });
+    window.addEventListener('pagehide',stopMusic);
+    document.addEventListener('freeze',stopMusic);
+    // Autoplay fallback only on browsers which block it at page entry.
+    for(const type of ['pointerdown','touchstart','keydown']){
+      document.addEventListener(type,startMusic,{capture:true,passive:true});
+    }
   }
-  function startMusic(){
-    if(!musicVisible())return;
-    if(!soundtrack.paused)return;
-    try{
-      const attempt=soundtrack.play();
-      attempt?.then(()=>{
-        if(!musicVisible())stopMusic();
-      }).catch(()=>{ /* The browser may require a gesture. */ });
-    }catch(_error){}
-  }
-
-  // Try to play from the initial splash, before it disappears.
-  startMusic();
-  document.addEventListener('DOMContentLoaded', startMusic, {once:true});
-  window.addEventListener('load', startMusic, {once:true});
-  soundtrack.addEventListener('canplay',startMusic,{once:true});
-  // Fallback if the platform enforces an autoplay gesture.
-  ['pointerdown','keydown','touchstart'].forEach(event=>{
-    document.addEventListener(event,startMusic,{capture:true,passive:true});
-  });
-  document.addEventListener('visibilitychange',()=>{
-    if(musicVisible())startMusic();else stopMusic();
-  });
-  window.addEventListener('pagehide',stopMusic);
-  window.addEventListener('pageshow',startMusic);
-  window.addEventListener('blur',stopMusic);
-  window.addEventListener('focus',startMusic);
-  document.addEventListener('freeze',stopMusic);
 
   // All guest data is queried from D1; no private guest list is embedded in GitHub Pages.
   const modal=document.createElement('div');
