@@ -215,10 +215,8 @@ body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
 .details-color{min-width:0;display:flex;flex-direction:column;align-items:center;gap:9px;color:#5b1b31}
 .details-color-dot{display:block;width:clamp(37px,6vw,61px);height:clamp(37px,6vw,61px);border-radius:100%;background:var(--shade);border:2px solid #fffdf8;outline:1px solid #d4af8d;box-shadow:0 3px 11px #27000e32, inset 0 0 0 1px #ffffff25}
 .details-color>span:last-child{font:500 clamp(10px,1.4vw,12px)/1.2 'DM Sans',sans-serif;letter-spacing:.03em}
-.details-outfit-figure{max-width:760px;margin:30px auto 0}
-.details-outfit-mobile{display:none}
-.details-outfit-figure img{display:block;width:100%;height:auto;aspect-ratio:950/535;object-fit:contain;background:#f8eae0;border:5px solid #fff5ea;border-radius:14px;box-shadow:0 12px 35px #28000c4d}
-.details-outfit-figure figcaption{margin-top:10px;color:#e6c6a9;font:400 12px/1.5 'DM Sans',sans-serif;letter-spacing:.055em}
+.details-outfit-figure{width:min(100%,540px);max-width:540px;margin:24px auto 0}
+.details-outfit-figure img{display:block;width:100%;height:auto;aspect-ratio:950/535;object-fit:contain;background:#f8eae0;border:3px solid #fff5ea;border-radius:12px;box-shadow:0 10px 28px #28000c38}
 .details-section .details-flourish{max-width:600px;margin:56px auto 49px}
 .details-section .details-celebration-line{font:600 clamp(14px,2vw,18px)/1.55 'DM Sans',sans-serif;letter-spacing:.13em;color:#e8c8ac;margin:0 auto 25px;text-transform:uppercase}
 .details-celebration-line span{padding:0 .4em;color:#d8aa83}
@@ -234,13 +232,8 @@ body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
  .details-color-palette{grid-template-columns:repeat(3,minmax(0,1fr));column-gap:12px;row-gap:16px;padding:0 6px;margin-bottom:0}
  .details-color-dot{width:clamp(50px,15vw,66px);height:clamp(50px,15vw,66px);border-width:2px}
  .details-color>span:last-child{font-size:clamp(11px,3.2vw,13px);font-weight:600}
- .details-outfit-figure{margin-top:18px}
- .details-outfit-figure img{border-width:3px;border-radius:10px}
- .details-outfit-figure .details-outfit-desktop{display:none}
- .details-outfit-mobile{display:grid;gap:14px}
- .details-outfit-crop{width:100%;aspect-ratio:475/535;overflow:hidden;border:3px solid #fff5ea;border-radius:10px;background:#f8eae0;box-shadow:0 8px 24px #28000c42}
- .details-outfit-mobile .details-outfit-crop img{display:block;width:200%;height:100%;max-width:none;aspect-ratio:auto;object-fit:fill;border:0;border-radius:0;box-shadow:none}
- .details-outfit-mobile .details-outfit-men img{transform:translateX(-50%)}
+ .details-outfit-figure{width:min(100%,440px);margin:20px auto 0}
+ .details-outfit-figure img{border-width:2px;border-radius:10px}
  .details-section .details-flourish{margin:43px auto 38px}
  .details-section .details-celebration-line{font-size:clamp(12px,3.2vw,15px);letter-spacing:.07em;margin-bottom:20px}
  .details-section .details-closing{font-size:clamp(22px,6vw,29px);margin-top:24px}
