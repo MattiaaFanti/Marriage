@@ -12,6 +12,83 @@
   document.querySelectorAll('[data-wedding-date]').forEach(n => n.textContent = 'MONDAY · 07 DECEMBER 2026');
   document.querySelectorAll('[data-wedding-address]').forEach(n => n.textContent = cfg.address || 'Mataas Na Kahoy, Lipa, Batangas, Philippines');
   document.querySelectorAll('[data-map-link]').forEach(n => n.href = cfg.mapUrl);
+  /*
+   * Mobile sound: restore native HTMLAudioElement autoplay attempts, which
+   * previously worked on the owner's phone. A browser may still require a
+   * gesture; JavaScript cannot bypass an OS autoplay restriction.
+   * Audio is detached as soon as the page is hidden/left so it cannot keep
+   * playing after the browser or app switches away.
+   */
+  const isMobileMusicDevice=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)||
+    (/Macintosh/i.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
+  if(isMobileMusicDevice){
+    const mobileTrack=cfg.musicFile||'./ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
+    const mobileAudio=document.createElement('audio');
+    mobileAudio.autoplay=true;
+    mobileAudio.loop=true;
+    mobileAudio.preload='auto';
+    mobileAudio.controls=false;
+    mobileAudio.playsInline=true;
+    mobileAudio.setAttribute('playsinline','');
+    mobileAudio.setAttribute('webkit-playsinline','');
+    mobileAudio.volume=0.20;
+    mobileAudio.setAttribute('aria-hidden','true');
+    mobileAudio.style.display='none';
+    document.body.appendChild(mobileAudio);
+
+    const visible=()=>document.visibilityState==='visible'&&!document.hidden;
+    let detached=false;
+    const clearMediaStatus=()=>{
+      try{
+        if('mediaSession' in navigator){
+          navigator.mediaSession.playbackState='none';
+          navigator.mediaSession.metadata=null;
+        }
+      }catch(_error){}
+    };
+    function stopMobileMusic(){
+      try{mobileAudio.pause()}catch(_error){}
+      try{mobileAudio.currentTime=0}catch(_error){}
+      // Unload on background to release the media session and prevent
+      // playback from continuing in Android/iOS notification controls.
+      if(!detached){
+        mobileAudio.removeAttribute('src');
+        mobileAudio.load();
+        detached=true;
+      }
+      clearMediaStatus();
+    }
+    function startMobileMusic(){
+      if(!visible())return;
+      if(detached||!mobileAudio.getAttribute('src')){
+        mobileAudio.src=mobileTrack;
+        detached=false;
+        mobileAudio.load();
+      }
+      try{
+        const promise=mobileAudio.play();
+        if(promise?.catch)promise.catch(()=>{
+          // Mobile autoplay may be forbidden until the first interaction.
+          // Keep the loaded track ready; never start audio while hidden.
+        });
+      }catch(_error){}
+    }
+    // Execute while the 2.5-second opening splash is still on screen.
+    startMobileMusic();
+    document.addEventListener('DOMContentLoaded',startMobileMusic,{once:true});
+    window.addEventListener('load',startMobileMusic,{once:true});
+    for(const event of ['pointerdown','touchend','keydown']){
+      document.addEventListener(event,startMobileMusic,{capture:true,passive:true});
+    }
+    document.addEventListener('visibilitychange',()=>{
+      if(visible())startMobileMusic();else stopMobileMusic();
+    });
+    window.addEventListener('blur',stopMobileMusic);
+    window.addEventListener('focus',startMobileMusic);
+    window.addEventListener('pagehide',stopMobileMusic);
+    window.addEventListener('pageshow',startMobileMusic);
+    document.addEventListener('freeze',stopMobileMusic);
+  }else{
   /* Non-media-element soundtrack to avoid native "Now Playing" UI.
      Browser policy may delay audible autoplay until the first user gesture.
      The engine fetches/decodes independently and unlocks iOS on interaction.
@@ -139,6 +216,7 @@
     if(visible()&&(soundUnlocked||soundWasPlaying))unlockSound();
   });
   document.addEventListener('freeze',stopSound);
+  }
 
   // All guest data is queried from D1; no private guest list is embedded in GitHub Pages.
   const modal=document.createElement('div');
