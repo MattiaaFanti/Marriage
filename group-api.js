@@ -1,5 +1,6 @@
-/* Group RSVP API. Public search is exact first name, full name, or surname;
-   never provides a directory, prefix search, or autocomplete results. */
+/* Group RSVP API. Exact names or a single unambiguous 3+ letter suggestion.
+   Never return a list of partial-match guests from the public endpoint. */
+import { ensureGuestMetadata } from "./guest-metadata.js";
 const textEncoder = new TextEncoder();
 const json = (data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
 const error = (message,status=400)=>json({error:message},status);
@@ -41,26 +42,69 @@ const publicMember=m=>({id:m.id,name:m.display_name,role:m.role,status:m.rsvp_st
 async function membersOf(groupId,env){
   return (await env.DB.prepare("SELECT id,display_name,role,rsvp_status,updated_at FROM rsvp_members WHERE group_id=? ORDER BY id").bind(groupId).all()).results;
 }
-async function throttle(req,env){
+async function throttle(req,env,scope="guestlookup",limit=25){
   const ip=req.headers.get("CF-Connecting-IP")||"unknown";
-  const ipHash=await digest(ip+"|wedding-guestlookup");
+  const ipHash=await digest(ip+"|wedding-"+scope);
   const windowStart=Math.floor(now()/900)*900;
   await env.DB.prepare(
     "INSERT INTO rsvp_lookup_limiter(ip_hash,window_start,attempts) VALUES(?,?,1) "+
     "ON CONFLICT(ip_hash) DO UPDATE SET attempts=CASE WHEN window_start=excluded.window_start THEN attempts+1 ELSE 1 END,window_start=excluded.window_start"
   ).bind(ipHash,windowStart).run();
   const record=await env.DB.prepare("SELECT attempts FROM rsvp_lookup_limiter WHERE ip_hash=?").bind(ipHash).first();
-  return Number(record?.attempts||0)<=25;
+  return Number(record?.attempts||0)<=limit;
 }
+
+/* Return up to TWO candidate rows solely to determine uniqueness;
+   the public response contains at most ONE, otherwise no names.
+   Only the start of a name or a word (such as a surname) can match. */
+async function candidates(q,env){
+  const prefix=q+"%";
+  const wordPrefix="% "+q+"%";
+  const rows=await env.DB.prepare(
+    "SELECT DISTINCT m.id,m.group_id,m.display_name,m.role FROM rsvp_members m "+
+    "LEFT JOIN rsvp_aliases a ON a.member_id=m.id "+
+    "WHERE a.alias LIKE ? OR LOWER(m.display_name) LIKE ? OR LOWER(m.display_name) LIKE ? "+
+    "ORDER BY m.display_name COLLATE NOCASE LIMIT 2"
+  ).bind(prefix,prefix,wordPrefix).all();
+  return rows.results||[];
+}
+async function suggest(req,env){
+  const body=await parseBody(req),q=nameKey(body?.query);
+  if(!validKey(q))return json({suggestions:[],needs_more_letters:false});
+  if(!await throttle(req,env,"suggestions",60))
+    return error("Too many searches. Try again later.",429);
+  await ensureGuestMetadata(env);
+  const hits=await candidates(q,env);
+  // Ambiguous input must never display an arbitrary name from the list.
+  if(hits.length!==1)return json({suggestions:[],needs_more_letters:hits.length>1});
+  const m=hits[0];
+  return json({suggestions:[{id:m.id,name:m.display_name,role:m.role||""}],needs_more_letters:false});
+}
+
 async function lookup(req,env){
+  await ensureGuestMetadata(env);
   const body=await parseBody(req),name=nameKey(body?.name);
   if(!validKey(name))return error("Enter your first name, surname or full name (at least 3 letters).");
   if(!await throttle(req,env))return error("Too many searches. Please try again later.",429);
-  const found=(await env.DB.prepare(
-    "SELECT DISTINCT m.group_id FROM rsvp_aliases a JOIN rsvp_members m ON m.id=a.member_id WHERE a.alias=? LIMIT 2"
-  ).bind(name).all()).results;
+  let found=[];
+  if(Number.isSafeInteger(body?.member_id)&&body.member_id>0){
+    // The autocomplete item is only accepted for the displayed full name.
+    const selected=await env.DB.prepare(
+      "SELECT group_id,display_name FROM rsvp_members WHERE id=?"
+    ).bind(body.member_id).first();
+    if(selected&&nameKey(selected.display_name)===name)found=[{group_id:selected.group_id}];
+  }else{
+    found=(await env.DB.prepare(
+      "SELECT DISTINCT m.group_id FROM rsvp_aliases a JOIN rsvp_members m ON m.id=a.member_id WHERE a.alias=? LIMIT 2"
+    ).bind(name).all()).results;
+    if(!found.length){
+      const matches=await candidates(name,env);
+      if(matches.length===1)found=[{group_id:matches[0].group_id}];
+      if(matches.length>1)return error("Several guests match. Please type more letters.",409);
+    }
+  }
   if(!found.length)return error("Invitation not found. Check the spelling of your name.",404);
-  if(found.length!==1)return error("Several invitations have that name. Please enter your full name.",409);
+  if(found.length!==1)return error("Several invitations match. Please enter your full name.",409);
   const groupId=found[0].group_id;
   const people=await membersOf(groupId,env);
   if(!people.length)return error("Invitation not found.",404);
@@ -90,6 +134,7 @@ async function submit(req,env){
   return json({ok:true,updated:members.length});
 }
 async function overview(env){
+  await ensureGuestMetadata(env);
   const groups=(await env.DB.prepare("SELECT id,group_code FROM rsvp_groups ORDER BY id").all()).results;
   const people=(await env.DB.prepare("SELECT m.id,m.group_id,m.display_name,m.role,m.rsvp_status,m.updated_at FROM rsvp_members m ORDER BY m.group_id,m.id").all()).results;
   const summary={groups:groups.length,invited:people.length,pending:0,attending:0,not_attending:0};
@@ -150,6 +195,7 @@ async function exportCsv(env){
    are explicitly unauthenticated; do not expose extra operations. */
 export async function groupedRoutes(req,env){
   const path=new URL(req.url).pathname,method=req.method;
+  if(path==="/api/household/suggest"&&method==="POST")return suggest(req,env);
   if(path==="/api/household/lookup"&&method==="POST")return lookup(req,env);
   if(path==="/api/household/confirm"&&method==="POST")return submit(req,env);
   if(path==="/api/admin/households"&&method==="GET")return json(await overview(env));
