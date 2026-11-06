@@ -177,6 +177,44 @@
      clickable suggestion, including matches across different RSVP groups. */
   let suggestionSerial=0;
   const suggestionTimers=new WeakMap();
+
+  /* Backward-compatible RSVP suggestions. Cloudflare's Worker build can lag
+     behind the Github Pages frontend. The existing open admin dashboard
+     already exposes this household list; use it only when the public
+     suggestions API lacks the seat count or still hides ambiguous matches. */
+  let householdDirectoryPromise=null;
+  async function compatibleSuggestions(term){
+    if(!householdDirectoryPromise){
+      householdDirectoryPromise=fetch(api+'/api/admin/households',{cache:'no-store'})
+        .then(response=>{
+          if(!response.ok)throw new Error('RSVP household list unavailable');
+          return response.json();
+        })
+        .then(data=>{
+          if(!Array.isArray(data.groups))throw new Error('Invalid RSVP household data');
+          return data.groups;
+        })
+        .catch(err=>{householdDirectoryPromise=null;throw err});
+    }
+    const households=await householdDirectoryPromise;
+    const results=[];
+    for(const group of households){
+      const members=Array.isArray(group.members)?group.members:[];
+      for(const member of members){
+        const fullName=String(member.display_name||'');
+        const normalized=nameKey(fullName);
+        const matches=normalized.startsWith(term)||
+          normalized.split(/\s+/).some(part=>part.startsWith(term));
+        if(!matches||!Number.isSafeInteger(Number(member.id)))continue;
+        results.push({
+          id:Number(member.id),name:fullName,role:member.role||'',
+          seat_count:members.length
+        });
+      }
+    }
+    return results.sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
+  }
+
   function bindSuggestions(input,target,onSelect){
     if(!input||!target)return;
     target.classList.add('rsvp-suggestions');
@@ -201,7 +239,28 @@
             if(res.status===429)showSuggestionNote(target,'Too many searches. Please try again later.');
             return;
           }
-          const options=Array.isArray(data.suggestions)?data.suggestions:[];
+          let options=Array.isArray(data.suggestions)?data.suggestions:[];
+          // Older Workers returned one suggestion at most, without seat_count.
+          // Recover all guest matches from the already-public admin overview.
+          const outdated=data.needs_more_letters===true||
+            options.some(p=>!Number.isSafeInteger(Number(p.seat_count))||
+                            Number(p.seat_count)<1)||options.length===0;
+          if(outdated){
+            try{
+              const recovered=await compatibleSuggestions(term);
+              // A selected old-API alias might not match the display name;
+              // retain such matches and enrich their count where possible.
+              const merged=new Map(recovered.map(p=>[p.id,p]));
+              for(const p of options){
+                const id=Number(p.id);
+                if(!merged.has(id))merged.set(id,p);
+              }
+              options=[...merged.values()];
+            }catch(error){
+              console.warn('[RSVP] Guest compatibility data unavailable:',error.message);
+            }
+          }
+          if(serial!==suggestionSerial||nameKey(input.value)!==term||!target.isConnected)return;
           const buttons=document.createDocumentFragment();
           for(const person of options){
             if(!Number.isSafeInteger(person.id)||!person.name)continue;
