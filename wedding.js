@@ -112,6 +112,17 @@
     palette.map(([label,color])=>'<div class="rsvp-shade" role="listitem"><span class="rsvp-shade-color" style="background:'+color+'"></span><span>'+label+'</span></div>').join('')+
     '</div>';
 
+  // Identical seat icon used in both name suggestions and the RSVP group header.
+  const seatIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6"/><path d="M5 12a2 2 0 0 0-2 2v5h18v-5a2 2 0 0 0-2-2"/><path d="M5 19v2M19 19v2"/></svg>';
+  function reservedSeatBadge(value){
+    const n=Number(value);
+    if(!Number.isSafeInteger(n)||n<1)return '';
+    const label=n+' '+(n===1?'seat reserved':'seats reserved');
+    return '<span class="rsvp-seat-badge" aria-label="'+label+'">'+
+      '<span class="rsvp-seat-icons" aria-hidden="true">'+seatIcon.repeat(Math.min(3,n))+'</span>'+
+      '<span class="rsvp-seat-label">'+label+'</span></span>';
+  }
+
   function countAnswers(){return state.members.filter(m=>['attending','not_attending'].includes(state.answers[m.id])).length;}
   function render(){
     let html='';
@@ -125,20 +136,20 @@
         primary(state.busy?'Searching…':'Search invitation','lookup',state.busy)+'</form>';
     }
     if(state.step==='choose'){
-      html='<p class="rsvp-kicker">YOUR INVITATION</p><h2 id="rsvpHeading">Who will attend?</h2>'+
-        '<p>Select Attend or Not attend for <strong>every person</strong> on your invitation.</p>'+
+      html='<p class="rsvp-kicker">YOUR INVITATION</p><h2 id="rsvpHeading" class="rsvp-reserved-heading">'+reservedSeatBadge(state.members.length)+'</h2>'+
+        '<p>Select Attending or Not Attending for <strong>every person</strong> on your invitation.</p>'+
         '<div class="rsvp-group-members">'+state.members.map(m=>{
           const selected=state.answers[m.id]||'';
           return '<div class="rsvp-member"><div class="rsvp-member-name">'+enc(m.name)+(m.role?'<small>'+enc(m.role)+'</small>':'')+'</div>'+
-            '<div class="rsvp-member-options"><button type="button" data-member="'+Number(m.id)+'" data-status="attending" aria-pressed="'+(selected==='attending')+'" class="rsvp-choice rsvp-yes'+(selected==='attending'?' selected':'')+'"><span class="rsvp-choice-label">Attend</span><span class="rsvp-choice-note">See you there!</span></button>'+
-            '<button type="button" data-member="'+Number(m.id)+'" data-status="not_attending" aria-pressed="'+(selected==='not_attending')+'" class="rsvp-choice rsvp-no'+(selected==='not_attending'?' selected':'')+'"><span class="rsvp-choice-label">Not attend</span><span class="rsvp-choice-note">I\'ll be there in spirit</span></button></div></div>';
+            '<div class="rsvp-member-options"><button type="button" data-member="'+Number(m.id)+'" data-status="attending" aria-pressed="'+(selected==='attending')+'" class="rsvp-choice rsvp-yes'+(selected==='attending'?' selected':'')+'"><span class="rsvp-choice-label">Attending</span><span class="rsvp-choice-note">See you there!</span></button>'+
+            '<button type="button" data-member="'+Number(m.id)+'" data-status="not_attending" aria-pressed="'+(selected==='not_attending')+'" class="rsvp-choice rsvp-no'+(selected==='not_attending'?' selected':'')+'"><span class="rsvp-choice-label">Not Attending</span><span class="rsvp-choice-note">I\'ll be there in spirit</span></button></div></div>';
         }).join('')+'</div>'+
         '<p class="rsvp-progress">'+countAnswers()+' of '+state.members.length+' responses selected</p>'+error()+
         primary('Continue','review',countAnswers()!==state.members.length);
     }
     if(state.step==='review'){
       html='<p class="rsvp-kicker">PLEASE REVIEW</p><h2 id="rsvpHeading">Confirm your answers</h2>'+
-        '<div class="rsvp-review">'+state.members.map(m=>'<div><span>'+enc(m.name)+'</span><strong class="'+(state.answers[m.id]==='attending'?'attend-text':'decline-text')+'">'+(state.answers[m.id]==='attending'?'Attend':'Not attend')+'</strong></div>').join('')+'</div>'+
+        '<div class="rsvp-review">'+state.members.map(m=>'<div><span>'+enc(m.name)+'</span><strong class="'+(state.answers[m.id]==='attending'?'attend-text':'decline-text')+'">'+(state.answers[m.id]==='attending'?'Attending':'Not Attending')+'</strong></div>').join('')+'</div>'+
         error()+primary(state.busy?'Saving…':'Save responses','submit',state.busy)+primary('Edit responses','edit',state.busy);
     }
     if(state.step==='dress'){
@@ -168,9 +179,7 @@
     }));
     content.querySelector('#rsvpLookup')?.addEventListener('submit',e=>{e.preventDefault();action('lookup')});
     const input=content.querySelector('#rsvpName');
-    if(input)bindSuggestions(input,content.querySelector('#modalNameSuggestions'),(name,id)=>{
-      state.name=name;state.selectedId=id;input.value=name;action('lookup');
-    });
+    if(input)bindSuggestions(input,content.querySelector('#modalNameSuggestions'),(name,id)=>open(name,id));
   }
 
   /* From the third letter, show every matching person as a separate,
@@ -271,16 +280,7 @@
             // Seat count comes from D1, not hard-coded in the public site.
             const seats=Number(person.seat_count);
             if(Number.isSafeInteger(seats)&&seats>0){
-              const badge=document.createElement('span');badge.className='rsvp-seat-badge';
-              badge.setAttribute('aria-label',seats+' '+(seats===1?'seat reserved':'seats reserved'));
-              const icons=document.createElement('span');icons.className='rsvp-seat-icons';
-              icons.setAttribute('aria-hidden','true');
-              const icon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6"/><path d="M5 12a2 2 0 0 0-2 2v5h18v-5a2 2 0 0 0-2-2"/><path d="M5 19v2M19 19v2"/></svg>';
-              icons.innerHTML=icon.repeat(Math.min(3,seats));
-              const label=document.createElement('span');label.className='rsvp-seat-label';
-              label.textContent=seats+' '+(seats===1?'seat reserved':'seats reserved');
-              badge.append(icons,label);
-              heading.append(badge);
+              heading.insertAdjacentHTML('beforeend',reservedSeatBadge(seats));
             }
             btn.append(heading);
             if(person.role){
@@ -309,7 +309,13 @@
     const p=document.createElement('p');p.className='rsvp-suggestion-note';p.textContent=note;
     target.replaceChildren(p);target.hidden=false;
   }
-  async function action(kind){
+  // Invalidates in-flight searches when another guest is selected or the dialog closes.
+  let lookupGeneration=0;
+  function revealRsvp(){
+    modal.hidden=false;
+    document.body.classList.add('rsvp-open');
+  }
+  async function action(kind,options={}){
     if(kind==='close'){close();return;}
     if(kind==='done'){state.step='done';render();return;}
     if(kind==='edit'){state.step='choose';render();return;}
@@ -318,12 +324,24 @@
       state.step='review';state.error='';render();return;
     }
     if(kind==='lookup'&&!state.busy){
-      const name=content.querySelector('#rsvpName')?.value.trim()||state.name.trim();
+      const silent=options.silent===true;
+      // For a suggestion click, use the selected name, not a stale input from
+      // the previous modal rendering.
+      const name=(silent?state.name:(content.querySelector('#rsvpName')?.value||state.name)).trim();
       state.name=name;
       const key=nameKey(name);
-      if(!validName(key)){state.error='Enter at least 3 letters of your name or surname.';render();return;}
-      if(!api){state.error='The RSVP database is not connected yet.';render();return;}
-      state.busy=true;state.error='';render();
+      if(!validName(key)){
+        state.error='Enter at least 3 letters of your name or surname.';
+        state.step='find';render();if(silent)revealRsvp();return;
+      }
+      if(!api){
+        state.error='The RSVP database is not connected yet.';
+        state.step='find';render();if(silent)revealRsvp();return;
+      }
+      const generation=lookupGeneration;
+      state.busy=true;
+      state.error='';
+      if(!silent)render();
       try{
         const request={name};
         if(state.selectedId&&Number.isSafeInteger(state.selectedId))request.member_id=state.selectedId;
@@ -332,13 +350,29 @@
           body:JSON.stringify(request),cache:'no-store'
         });
         const data=await resp.json().catch(()=>({}));
+        if(generation!==lookupGeneration)return;
         if(!resp.ok)throw Error(data.error||'Unable to find the invitation.');
-        if(!Array.isArray(data.members)||!data.members.length||!data.household_token)throw Error('Invalid invitation data.');
-        state.members=data.members;state.token=data.household_token;
-        state.answers={};for(const m of data.members)state.answers[m.id]=m.status==='pending'?'':m.status;
-        state.step='choose';state.error='';
-      }catch(e){state.error=e.message||'Search failed.';}
-      finally{state.busy=false;render();}
+        if(!Array.isArray(data.members)||!data.members.length||!data.household_token)
+          throw Error('Invalid invitation data.');
+        state.members=data.members;
+        state.token=data.household_token;
+        state.answers={};
+        for(const m of data.members)state.answers[m.id]=m.status==='pending'?'':m.status;
+        state.step='choose';
+        state.error='';
+      }catch(e){
+        if(generation!==lookupGeneration)return;
+        state.step='find';
+        state.error=e.message||'Search failed.';
+      }finally{
+        if(generation===lookupGeneration){
+          state.busy=false;
+          render();
+          // The modal becomes visible only once the seats-selection screen
+          // (or an actual error) has been rendered, never while searching.
+          if(silent)revealRsvp();
+        }
+      }
       return;
     }
     if(kind==='submit'&&!state.busy){
@@ -361,11 +395,26 @@
     }
   }
   function open(name='',id=null){
+    lookupGeneration++;
     state.step='find';state.name=name;state.selectedId=id;state.token='';state.members=[];state.answers={};state.error='';state.busy=false;
-    modal.hidden=false;document.body.classList.add('rsvp-open');render();
-    if(name)action('lookup');
+    // A selected suggestion bypasses the "Find your invitation" popup.
+    // Fetch the group invisibly and reveal only the ready RSVP screen.
+    if(String(name).trim()){
+      modal.hidden=true;
+      document.body.classList.remove('rsvp-open');
+      action('lookup',{silent:true});
+    }else{
+      render();
+      revealRsvp();
+    }
   }
-  function close(){modal.hidden=true;document.body.classList.remove('rsvp-open');suggestionSerial++;}
+  function close(){
+    lookupGeneration++;
+    state.busy=false;
+    modal.hidden=true;
+    document.body.classList.remove('rsvp-open');
+    suggestionSerial++;
+  }
   document.querySelectorAll('[data-open-rsvp]').forEach(button=>button.addEventListener('click',()=>open()));
   document.querySelectorAll('[data-rsvp-search]').forEach(form=>{
     const input=form.querySelector('input');

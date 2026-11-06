@@ -98,3 +98,21 @@
  .rsvp-choice-note{font-size:9px}
  .rsvp-member-options .rsvp-choice{padding:7px 3px}
 }
+
+
+/* The group RSVP heading is the same seats-reserved badge used in name
+   suggestions, enlarged and centered inside the existing cream dialog. */
+.rsvp-dialog h2.rsvp-reserved-heading{
+  display:flex;align-items:center;justify-content:center;
+  margin:12px 0 17px;min-height:48px;
+}
+.rsvp-reserved-heading .rsvp-seat-badge{
+  font:750 16px/1.2 system-ui,-apple-system,"Segoe UI",sans-serif;
+  padding:11px 18px;gap:10px;border-radius:999px;
+}
+.rsvp-reserved-heading .rsvp-seat-icons svg{width:20px;height:20px;margin-right:-3px}
+.rsvp-reserved-heading .rsvp-seat-icons svg:last-child{margin-right:0}
+@media(max-width:380px){
+  .rsvp-reserved-heading .rsvp-seat-badge{font-size:14px;padding:10px 14px}
+  .rsvp-reserved-heading .rsvp-seat-icons svg{width:18px;height:18px}
+}
