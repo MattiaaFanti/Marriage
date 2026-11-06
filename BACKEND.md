@@ -8,8 +8,8 @@
 
 ## Current configuration
 - `config.js` points to the live Worker. There is no preview-only mode when the API is reachable.
-- The 31 invitation groups and 50 guests were imported to D1. No guest names are published in this repository.
-- Public lookup accepts **exact** first name, surname, or full name (case-insensitive), not prefixes or wildcard queries. Shared first/surnames across groups require a full name.
+- The 31 original groups and 50 guests were imported to D1. A one-time automatic migration adds the second family group of three guests (32 groups, 53 guests total) and updates four relatives' roles. No guest names are published in this repository.
+- Public lookup allows a unique 3+ character name/surname prefix and shows at most one suggestion; ambiguous searches reveal no names. Shared first/surnames across groups require a full name.
 - Results show everyone in the same group and require one Attend / Not attend selection per person.
 - The confirmation token is a randomly generated, one-hour opaque session stored hashed in D1's existing `admin_sessions` table. It is not a password. No INVITE_SECRET or ADMIN_PASSWORD variable is needed.
 - The dashboard at **/admin** is intentionally passwordless and public, by request. Users can change each RSVP to Attend, Not attend, or Pending (Reset), and Reset all to Pending. All guests and replies are visible and editable by anyone who knows the address. Changes are logged in `rsvp_member_events`.

@@ -12,211 +12,64 @@
   document.querySelectorAll('[data-wedding-date]').forEach(n => n.textContent = 'MONDAY · 07 DECEMBER 2026');
   document.querySelectorAll('[data-wedding-address]').forEach(n => n.textContent = cfg.address || 'Mataas Na Kahoy, Lipa, Batangas, Philippines');
   document.querySelectorAll('[data-map-link]').forEach(n => n.href = cfg.mapUrl);
-  /*
-   * Mobile sound: restore native HTMLAudioElement autoplay attempts, which
-   * previously worked on the owner's phone. A browser may still require a
-   * gesture; JavaScript cannot bypass an OS autoplay restriction.
-   * Audio is detached as soon as the page is hidden/left so it cannot keep
-   * playing after the browser or app switches away.
-   */
-  const isMobileMusicDevice=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)||
-    (/Macintosh/i.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
-  if(isMobileMusicDevice){
-    const mobileTrack=cfg.musicFile||'./ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
-    const mobileAudio=document.createElement('audio');
-    mobileAudio.autoplay=true;
-    mobileAudio.loop=true;
-    mobileAudio.preload='auto';
-    mobileAudio.controls=false;
-    mobileAudio.playsInline=true;
-    mobileAudio.setAttribute('playsinline','');
-    mobileAudio.setAttribute('webkit-playsinline','');
-    mobileAudio.volume=0.20;
-    mobileAudio.setAttribute('aria-hidden','true');
-    mobileAudio.style.display='none';
-    document.body.appendChild(mobileAudio);
+  /* Same HTML audio player used before the Web Audio change.
+     Autoplay attempts on page entry; some browsers still restrict it.
+     Pauses whenever the page loses visibility or the browser/app is left. */
+  const soundtrack = document.createElement('audio');
+  const backupMusic = './ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
+  soundtrack.src = cfg.musicFile || backupMusic;
+  soundtrack.autoplay = true;
+  soundtrack.loop = true;
+  soundtrack.preload = 'auto';
+  soundtrack.controls = false;
+  soundtrack.volume = 0.18;
+  soundtrack.setAttribute('playsinline','');
+  soundtrack.setAttribute('webkit-playsinline','');
+  soundtrack.setAttribute('aria-hidden','true');
+  soundtrack.style.display = 'none';
+  document.body.appendChild(soundtrack);
 
-    const visible=()=>document.visibilityState==='visible'&&!document.hidden;
-    let detached=false;
-    const clearMediaStatus=()=>{
-      try{
-        if('mediaSession' in navigator){
-          navigator.mediaSession.playbackState='none';
-          navigator.mediaSession.metadata=null;
-        }
-      }catch(_error){}
-    };
-    function stopMobileMusic(){
-      try{mobileAudio.pause()}catch(_error){}
-      try{mobileAudio.currentTime=0}catch(_error){}
-      // Unload on background to release the media session and prevent
-      // playback from continuing in Android/iOS notification controls.
-      if(!detached){
-        mobileAudio.removeAttribute('src');
-        mobileAudio.load();
-        detached=true;
-      }
-      clearMediaStatus();
-    }
-    function startMobileMusic(){
-      if(!visible())return;
-      if(detached||!mobileAudio.getAttribute('src')){
-        mobileAudio.src=mobileTrack;
-        detached=false;
-        mobileAudio.load();
-      }
-      try{
-        const promise=mobileAudio.play();
-        if(promise?.catch)promise.catch(()=>{
-          // Mobile autoplay may be forbidden until the first interaction.
-          // Keep the loaded track ready; never start audio while hidden.
-        });
-      }catch(_error){}
-    }
-    // Execute while the 2.5-second opening splash is still on screen.
-    startMobileMusic();
-    document.addEventListener('DOMContentLoaded',startMobileMusic,{once:true});
-    window.addEventListener('load',startMobileMusic,{once:true});
-    for(const event of ['pointerdown','touchend','keydown']){
-      document.addEventListener(event,startMobileMusic,{capture:true,passive:true});
-    }
-    document.addEventListener('visibilitychange',()=>{
-      if(visible())startMobileMusic();else stopMobileMusic();
-    });
-    window.addEventListener('blur',stopMobileMusic);
-    window.addEventListener('focus',startMobileMusic);
-    window.addEventListener('pagehide',stopMobileMusic);
-    window.addEventListener('pageshow',startMobileMusic);
-    document.addEventListener('freeze',stopMobileMusic);
-  }else{
-  /* Non-media-element soundtrack to avoid native "Now Playing" UI.
-     Browser policy may delay audible autoplay until the first user gesture.
-     The engine fetches/decodes independently and unlocks iOS on interaction.
-     Never continues into the background. */
-  const AudioContextType=window.AudioContext||window.webkitAudioContext;
-  const soundtrackUrl=cfg.musicFile||'./ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
-  let soundContext=null;
-  let soundBuffer=null;
-  let soundFetch=null;
-  let soundSource=null;
-  let soundGain=null;
-  let soundUnlocked=false;
-  let soundInvalidation=0;
-  let soundWasPlaying=false;
-  const visible=()=>document.visibilityState==='visible'&&!document.hidden;
+  let musicFallbackUsed = false;
+  soundtrack.addEventListener('error', () => {
+    if(musicFallbackUsed)return;
+    musicFallbackUsed = true;
+    soundtrack.src = backupMusic;
+    soundtrack.load();
+    startMusic();
+  });
 
-  function contextForMusic(){
-    if(!AudioContextType)return null;
-    if(!soundContext||soundContext.state==='closed'){
-      soundContext=new AudioContextType();
-      soundContext.addEventListener?.('statechange',()=>{
-        if(soundContext?.state==='running'&&visible())startDecodedSound();
-      });
-    }
-    return soundContext;
+  const musicVisible=()=>document.visibilityState==='visible'&&!document.hidden;
+  function stopMusic(){
+    try{soundtrack.pause()}catch(_error){}
   }
-
-  async function fetchAndDecodeSound(){
-    if(soundBuffer)return soundBuffer;
-    if(soundFetch)return soundFetch;
-    soundFetch=(async()=>{
-      const response=await fetch(soundtrackUrl,{cache:'no-cache'});
-      if(!response.ok)throw new Error('MP3 unavailable: HTTP '+response.status);
-      const bytes=await response.arrayBuffer();
-      if(!bytes.byteLength)throw new Error('MP3 is empty');
-      const context=contextForMusic();
-      if(!context)throw new Error('Web Audio unavailable');
-      soundBuffer=await context.decodeAudioData(bytes);
-      return soundBuffer;
-    })().catch(error=>{
-      console.warn('Wedding soundtrack could not be decoded:',error?.message);
-      return null;
-    }).finally(()=>{if(!soundBuffer)soundFetch=null;});
-    return soundFetch;
-  }
-
-  function startDecodedSound(){
-    if(!visible()||!soundBuffer||soundSource||soundContext?.state!=='running')return;
+  function startMusic(){
+    if(!musicVisible())return;
+    if(!soundtrack.paused)return;
     try{
-      const node=soundContext.createBufferSource();
-      const gain=soundContext.createGain();
-      node.buffer=soundBuffer;
-      node.loop=true;
-      gain.gain.value=0.25;
-      node.connect(gain);
-      gain.connect(soundContext.destination);
-      node.start(0);
-      soundSource=node;
-      soundGain=gain;
-      soundUnlocked=true;
-      soundWasPlaying=true;
-    }catch(error){
-      console.warn('Wedding soundtrack playback failed:',error?.message);
-    }
+      const attempt=soundtrack.play();
+      attempt?.then(()=>{
+        if(!musicVisible())stopMusic();
+      }).catch(()=>{ /* The browser may require a gesture. */ });
+    }catch(_error){}
   }
-  function unlockSound(event){
-    if(!visible())return;
-    const ctx=contextForMusic();
-    if(!ctx)return;
-    // Safari/iOS unlock: schedule a silent one-shot *inside* the real gesture,
-    // without waiting for MP3 network or decoding promises.
-    if(event?.isTrusted&&ctx.state!=='running'){
-      try{
-        const primer=ctx.createBuffer(1,1,ctx.sampleRate);
-        const oneShot=ctx.createBufferSource();
-        oneShot.buffer=primer;
-        oneShot.connect(ctx.destination);
-        oneShot.start(0);
-        oneShot.onended=()=>{try{oneShot.disconnect()}catch(_){}};
-      }catch(_error){}
-    }
-    if(ctx.state!=='running'){
-      try{
-        const pending=ctx.resume();
-        pending?.then(()=>{if(visible())startDecodedSound()}).catch(()=>{});
-      }catch(_error){}
-    }
-    const generation=soundInvalidation;
-    fetchAndDecodeSound().then(()=>{
-      if(generation===soundInvalidation&&visible())startDecodedSound();
-    });
-    startDecodedSound();
-  }
-  function stopSound(){
-    soundInvalidation++;
-    if(soundSource){
-      try{soundSource.stop(0);soundSource.disconnect()}catch(_error){}
-      soundSource=null;
-    }
-    if(soundGain){
-      try{soundGain.disconnect()}catch(_error){}
-      soundGain=null;
-    }
-    if(soundContext?.state==='running')
-      soundContext.suspend().catch(()=>{});
-  }
-  // Attempt immediate playback wherever the browser allows it.
-  fetchAndDecodeSound().then(()=>{if(visible())unlockSound()});
-  unlockSound();
-  document.addEventListener('DOMContentLoaded',()=>unlockSound(),{once:true});
-  window.addEventListener('load',()=>unlockSound(),{once:true});
-  for(const type of ['pointerdown','touchend','click','keydown']){
-    document.addEventListener(type,unlockSound,{capture:true,passive:true});
-  }
+
+  // Try to play from the initial splash, before it disappears.
+  startMusic();
+  document.addEventListener('DOMContentLoaded', startMusic, {once:true});
+  window.addEventListener('load', startMusic, {once:true});
+  soundtrack.addEventListener('canplay',startMusic,{once:true});
+  // Fallback if the platform enforces an autoplay gesture.
+  ['pointerdown','keydown','touchstart'].forEach(event=>{
+    document.addEventListener(event,startMusic,{capture:true,passive:true});
+  });
   document.addEventListener('visibilitychange',()=>{
-    if(!visible())stopSound();
-    else if(soundUnlocked||soundWasPlaying)unlockSound();
+    if(musicVisible())startMusic();else stopMusic();
   });
-  window.addEventListener('pagehide',()=>{
-    stopSound();
-    if(soundContext&&soundContext.state!=='closed')
-      soundContext.close().catch(()=>{});
-  });
-  window.addEventListener('pageshow',()=>{
-    if(visible()&&(soundUnlocked||soundWasPlaying))unlockSound();
-  });
-  document.addEventListener('freeze',stopSound);
-  }
+  window.addEventListener('pagehide',stopMusic);
+  window.addEventListener('pageshow',startMusic);
+  window.addEventListener('blur',stopMusic);
+  window.addEventListener('focus',startMusic);
+  document.addEventListener('freeze',stopMusic);
 
   // All guest data is queried from D1; no private guest list is embedded in GitHub Pages.
   const modal=document.createElement('div');

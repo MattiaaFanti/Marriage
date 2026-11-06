@@ -135,7 +135,13 @@ async function submit(req,env){
 }
 async function overview(env){
   await ensureGuestMetadata(env);
-  const groups=(await env.DB.prepare("SELECT id,group_code FROM rsvp_groups ORDER BY id").all()).results;
+  const groups=(await env.DB.prepare(
+    "SELECT id,group_code FROM rsvp_groups "+
+    "ORDER BY CASE "+
+      "WHEN id=(SELECT MIN(id) FROM rsvp_groups WHERE group_code!='family-assunta-jessica-andrea-2026') THEN 0 "+
+      "WHEN group_code='family-assunta-jessica-andrea-2026' THEN 1 "+
+      "ELSE 2 END,id"
+  ).all()).results;
   const people=(await env.DB.prepare("SELECT m.id,m.group_id,m.display_name,m.role,m.rsvp_status,m.updated_at FROM rsvp_members m ORDER BY m.group_id,m.id").all()).results;
   const summary={groups:groups.length,invited:people.length,pending:0,attending:0,not_attending:0};
   for(const p of people)summary[p.rsvp_status]++;

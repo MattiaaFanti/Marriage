@@ -1,7 +1,7 @@
 /* Single idempotent data correction after Worker deploy.
    Preserve group_id, RSVP status, update timestamps and event history. */
-const version="guest-role-corrections-2026-11-06-v3";
-const roles=[["Ariel Apritado","Butch's Friends"],["Rico Vergara","Butch's Friends"],["Ante Dimaculangan","Butch's Friends"],["Arnel Ozaeta","Butch's Friends"],["Eddie Cabungkal","Butch's Friends"],["Boyet Ona","Butch's Friends"],["Norma Destura","Tita"],["Maria Cecile Sevilleno","Tita"],["Rap Sevilleno","Tito"],["Jacquie Sevilleno","Tita"],["Grande Montalbo","Umpeng"],["Rosana Acquiatan","Umpeng"],["Mar Acquiatan","Umpeng"],["Malvin James Sevilleno","Kuya"]];
+const version="guest-role-corrections-2026-11-06-v4";
+const roles=[["Ariel Apritado","Butch's Friends"],["Rico Vergara","Butch's Friends"],["Ante Dimaculangan","Butch's Friends"],["Arnel Ozaeta","Butch's Friends"],["Eddie Cabungkal","Butch's Friends"],["Boyet Ona","Butch's Friends"],["Norma Destura","Tita"],["Maria Cecile Sevilleno","Tita"],["Rap Sevilleno","Tito"],["Jacquie Sevilleno","Tita"],["Grande Montalbo","Umpeng"],["Rosana Acquiatan","Umpeng"],["Mar Acquiatan","Umpeng"],["Malvin James Sevilleno","Kuya"],["Mario Buccola","Zio"],["Rita Morisco","Zia"],["Angelo Mallus","Zio"],["Patrizia Fanti","Zia"]];
 const renames=[["Tito Rico","Rico","Tito"],["Tito Adan","Adam","Tito"],["Tito Adam","Adam","Tito"],["Adan","Adam","Tito"],["Jackie Sevilleno","Jacquie Sevilleno","Tita"]];
 let ready=false;
 let running=null;
@@ -40,6 +40,28 @@ export async function ensureGuestMetadata(env){
     }
     // The display name excludes 'Tito'; keeping a title-prefixed alias lets
     // single-name guests distinguish themselves when 'Rico' is ambiguous.
+
+    // A distinct three-person family invitation, inserted once into D1.
+    // We place it second when displaying groups, without renumbering or
+    // modifying the original families, their replies or event history.
+    const familyCode="family-assunta-jessica-andrea-2026";
+    statements.push(env.DB.prepare(
+      "INSERT OR IGNORE INTO rsvp_groups(group_code) VALUES(?)"
+    ).bind(familyCode));
+    const newFamily=[["Maria Assunta Morisco","Mamma",["maria assunta morisco","maria assunta","maria","assunta","morisco"]],["Jessica Fanti","Sorella",["jessica fanti","jessica","fanti"]],["Andrea Lilliu","Famiglia",["andrea lilliu","andrea","lilliu"]]];
+    for(const [name,role,aliases] of newFamily){
+      statements.push(env.DB.prepare(
+        "INSERT OR IGNORE INTO rsvp_members(group_id,display_name,role,rsvp_status,updated_at) "+
+        "SELECT id,?,?,'pending',NULL FROM rsvp_groups WHERE group_code=?"
+      ).bind(name,role,familyCode));
+      for(const alias of aliases){
+        statements.push(env.DB.prepare(
+          "INSERT OR IGNORE INTO rsvp_aliases(alias,member_id) "+
+          "SELECT ?,m.id FROM rsvp_members m JOIN rsvp_groups g ON m.group_id=g.id "+
+          "WHERE g.group_code=? AND m.display_name=?"
+        ).bind(alias,familyCode,name));
+      }
+    }
     statements.push(env.DB.prepare(
       "INSERT OR IGNORE INTO rsvp_data_migrations(name,applied_at) VALUES(?,?)"
     ).bind(version,new Date().toISOString()));
