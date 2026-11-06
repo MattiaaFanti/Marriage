@@ -49,6 +49,16 @@ a{color:inherit}
 .wedding-audio-prompt[hidden]{display:none!important}
 .wedding-audio-prompt{position:fixed;z-index:1001;right:16px;bottom:max(16px,env(safe-area-inset-bottom,0px));border:1px solid #e8c89f;background:#650016;color:#fff3ea;border-radius:999px;box-shadow:0 3px 14px #25000977;padding:10px 16px;font:600 12px/1.3 'DM Sans',sans-serif;letter-spacing:.025em;cursor:pointer}
 .wedding-audio-prompt:focus-visible{outline:2px solid #f8e9dc;outline-offset:3px}
+/* Before the invitation opens, show the required music gesture centrally. */
+body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
+ left:50%;right:auto;bottom:max(28px,12svh);
+ transform:translateX(-50%);white-space:nowrap;
+ padding:12px 20px;border-color:#f1d5ae;
+ background:#f5dcc0;color:#59001a;
+ box-shadow:0 5px 24px #21000d7a;
+ font-size:13px;
+}
+
 
 .cover-screen{min-height:100svh;display:flex;align-items:flex-start;justify-content:center;background:var(--burgundy);overflow:hidden}
 .cover-stage{position:relative;width:min(100vw,66.6667svh,820px);aspect-ratio:2/3;flex:none;container-type:inline-size;overflow:hidden}
@@ -267,15 +277,17 @@ a{color:inherit}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.splash{transition:none}.splash-track-fill{animation:none;transform:scaleX(1)}.splash-progress-bride{animation:none;left:83%}.splash-progress-heart{animation:none;opacity:1;transform:scale(1) translateY(-7px)}}
 </style>
 <script defer src="./config.js?v=20261106-rsvp-audio3"></script>
-<script defer src="./wedding.js?v=20261106-immediate-audio10"></script>
+<script defer src="./wedding.js?v=20261106-gesture-audio11"></script>
 <script defer src="./cover-retouch.js?v=1"></script>
 </head>
 <body>
+<button id="wedding-audio-prompt" class="wedding-audio-prompt" type="button" hidden aria-label="Start wedding background music">Tap to start music</button>
 <script>
-/* Start loading and attempt audible playback immediately, including during the monogram splash.
-   Browser autoplay permissions still apply; wedding.js provides a first-tap fallback. */
+/* Audible autoplay is attempted as early as possible.
+   Mobile browsers can require a real tap; this button works even while deferred JS loads. */
 (function(){
   const audio=document.createElement('audio');
+  const prompt=document.getElementById('wedding-audio-prompt');
   audio.id='wedding-soundtrack';
   audio.volume=0.18;
   audio.loop=true;
@@ -284,10 +296,22 @@ a{color:inherit}
   audio.setAttribute('playsinline','');
   audio.src='./ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
   document.body.appendChild(audio);
-  try{
-    const p=audio.play();
-    if(p && typeof p.catch==='function')p.catch(()=>{});
-  }catch(_ignored){}
+  audio.addEventListener('playing',()=>{prompt.hidden=true});
+  function attemptPlayback(){
+    try{
+      const p=audio.play();
+      if(p && typeof p.then==='function'){
+        p.then(()=>{prompt.hidden=true}).catch(err=>{
+          if(err && err.name==='NotAllowedError' && audio.paused)prompt.hidden=false;
+        });
+      }
+    }catch(err){
+      if(err && err.name==='NotAllowedError')prompt.hidden=false;
+    }
+  }
+  prompt.addEventListener('click',attemptPlayback);
+  prompt.dataset.bootstrapClick='1';
+  attemptPlayback();
 })();
 </script>
 <div class="splash" id="opening" aria-label="Opening title" aria-hidden="false">
@@ -315,7 +339,7 @@ a{color:inherit}
  window.scrollTo(0,0);
  window.addEventListener('pageshow',()=>window.scrollTo(0,0));
  const splash=document.getElementById('opening');
- window.setTimeout(()=>{splash.classList.add('is-hidden');splash.setAttribute('aria-hidden','true');window.scrollTo(0,0)},2500);
+ window.setTimeout(()=>{splash.classList.add('is-hidden');splash.setAttribute('aria-hidden','true');document.body.classList.add('splash-dismissed');window.scrollTo(0,0)},2500);
 })();
 </script>
 <script>
