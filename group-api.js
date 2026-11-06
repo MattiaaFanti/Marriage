@@ -101,25 +101,39 @@ async function adminPatch(req,env,id){
   if(!["pending","attending","not_attending"].includes(b?.status))return error("Invalid RSVP status.");
   const member=await env.DB.prepare("SELECT * FROM rsvp_members WHERE id=?").bind(id).first();
   if(!member)return error("Guest not found.",404);
-  if(member.rsvp_status===b.status)return json({ok:true,unchanged:true});
+  // Reset to Pending also removes the visible Last updated timestamp.
+  // Preserve the separate audit-event history.
+  if(member.rsvp_status===b.status){
+    if(b.status==="pending"&&member.updated_at!==null){
+      await env.DB.prepare("UPDATE rsvp_members SET updated_at=NULL WHERE id=?").bind(id).run();
+    }
+    return json({ok:true,unchanged:true});
+  }
   const at=new Date().toISOString();
   await env.DB.batch([
-    env.DB.prepare("UPDATE rsvp_members SET rsvp_status=?,updated_at=? WHERE id=?").bind(b.status,at,id),
-    env.DB.prepare("INSERT INTO rsvp_member_events(member_id,previous_status,status,source,received_at) VALUES(?,?,?,'admin',?)").bind(id,member.rsvp_status,b.status,at)
+    env.DB.prepare("UPDATE rsvp_members SET rsvp_status=?,updated_at=? WHERE id=?")
+      .bind(b.status,b.status==="pending"?null:at,id),
+    env.DB.prepare("INSERT INTO rsvp_member_events(member_id,previous_status,status,source,received_at) VALUES(?,?,?,'admin',?)")
+      .bind(id,member.rsvp_status,b.status,at)
   ]);
   return json({ok:true,status:b.status});
 }
 async function resetAll(req,env){
   const body=await parseBody(req);
   if(body?.confirm!=="RESET ALL RSVP")return error("Confirmation required.",400);
-  const count=await env.DB.prepare("SELECT COUNT(*) AS total FROM rsvp_members WHERE rsvp_status!='pending'").first();
-  if(!Number(count?.total||0))return json({ok:true,updated:0});
+  const count=await env.DB.prepare(
+    "SELECT COUNT(*) AS total FROM rsvp_members WHERE rsvp_status!='pending'"
+  ).first();
+  const stale=await env.DB.prepare(
+    "SELECT COUNT(*) AS total FROM rsvp_members WHERE rsvp_status!='pending' OR updated_at IS NOT NULL"
+  ).first();
+  if(!Number(stale?.total||0))return json({ok:true,updated:0});
   const at=new Date().toISOString();
   await env.DB.batch([
     env.DB.prepare("INSERT INTO rsvp_member_events(member_id,previous_status,status,source,received_at) SELECT id,rsvp_status,'pending','admin',? FROM rsvp_members WHERE rsvp_status!='pending'").bind(at),
-    env.DB.prepare("UPDATE rsvp_members SET rsvp_status='pending',updated_at=? WHERE rsvp_status!='pending'").bind(at)
+    env.DB.prepare("UPDATE rsvp_members SET rsvp_status='pending',updated_at=NULL WHERE rsvp_status!='pending' OR updated_at IS NOT NULL")
   ]);
-  return json({ok:true,updated:Number(count.total)});
+  return json({ok:true,updated:Number(count?.total||0)});
 }
 function csvCell(v){
   let s=String(v??"");
