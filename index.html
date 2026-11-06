@@ -33,17 +33,21 @@ a{color:inherit}
 .splash-mark{font:400 clamp(77px,11vw,125px)/.85 'Cormorant Garamond',serif;letter-spacing:-.075em}
 .splash-mark span{font-size:.43em;letter-spacing:0;vertical-align:middle;color:#dfb990;margin:0 .1em}
 .splash-names{font:400 clamp(22px,2.8vw,36px) 'Cormorant Garamond',serif;letter-spacing:.17em;margin-top:36px}
-/* Opening animation: retain the original 200px rule width, with a bride moving toward the groom. */
-.splash-progress{position:relative;width:200px;max-width:60vw;height:47px;margin:15px auto 10px;isolation:isolate}
-.splash-track{position:absolute;left:0;right:0;top:31px;height:5px;overflow:hidden;border-radius:99px;background:#f1d6c0;border:1px solid #e9bf86;box-shadow:0 0 0 1px #50001455,0 1px 5px #1c00136b}
-.splash-track-fill{position:absolute;inset:-1px;display:block;border-radius:inherit;background:linear-gradient(90deg,#9b153a,#bf4467 52%,#efca94 100%);box-shadow:inset 0 1px 0 #fff4d388;transform-origin:left center;transform:scaleX(0);animation:splash-progress-fill 2.3s linear forwards}
-.splash-progress-bride,.splash-progress-groom{display:block;position:absolute;bottom:6px;z-index:2;height:48px;width:auto;max-width:none;pointer-events:none;user-select:none;filter:drop-shadow(0 1px 2px #30000c77)}
-.splash-progress-bride{left:0;transform:translateX(-48%);animation:splash-bride-walk 2.3s linear forwards}
-.splash-progress-groom{right:0;transform:translateX(48%)}
-.splash-progress-heart{position:absolute;z-index:3;right:11%;top:-4px;color:#f3cea1;font-size:14px;line-height:1;opacity:0;transform:scale(.45) translateY(6px);text-shadow:0 0 8px #eec29177;animation:splash-heart-appear .33s ease-out 2.12s both;pointer-events:none}
+/* Italy-to-Philippines wedding journey. Keep the original loading line exactly 200px wide. */
+.splash-progress{position:relative;width:200px;max-width:60vw;height:58px;margin:13px auto 10px;isolation:isolate}
+.splash-track{position:absolute;left:0;right:0;top:38px;height:5px;overflow:hidden;border-radius:99px;background:#f1d6c0;border:1px solid #e9bf86;box-shadow:0 0 0 1px #50001455,0 1px 5px #1c00136b}
+.splash-track-fill{position:absolute;inset:-1px;display:block;border-radius:inherit;background:linear-gradient(90deg,#9b153a,#bf4467 52%,#efca94 100%);transform-origin:left center;transform:scaleX(0);animation:splash-progress-fill 2.3s linear forwards}
+.splash-traveler{position:absolute;z-index:4;left:0;top:-1px;width:54px;height:53px;transform:translateX(-48%);animation:splash-flight 2.3s cubic-bezier(.35,.05,.65,1) forwards;pointer-events:none}
+.splash-traveler .splash-groom-rider{position:absolute;z-index:3;width:31px;height:37px;object-fit:contain;left:12px;top:0;filter:drop-shadow(0 1px 1px #32001270)}
+.splash-traveler .splash-plane{position:absolute;z-index:4;width:54px;height:27px;left:0;bottom:0;filter:drop-shadow(0 2px 2px #2c001270)}
+.splash-it-flag{position:absolute;z-index:5;left:0;top:0;width:18px;height:13px;border:1px solid #efd4b8;box-shadow:0 1px 3px #2b001367;background:linear-gradient(90deg,#159447 0 33.3%,#fff 33.3% 66.6%,#e23e42 66.6% 100%);border-radius:1px;transform:rotate(-9deg)}
+.splash-progress-bride{display:block;position:absolute;z-index:3;right:-22px;top:0;width:auto;height:49px;max-width:none;pointer-events:none;user-select:none;filter:drop-shadow(0 1px 2px #30000c77)}
+.splash-ph-flag{position:absolute;right:-22px;top:-10px;z-index:5;width:22px;height:16px;filter:drop-shadow(0 1px 2px #25000870)}
+.splash-progress-heart{position:absolute;z-index:6;right:4px;top:-9px;color:#f3cea1;font-size:16px;line-height:1;opacity:0;transform:scale(.45);text-shadow:0 0 8px #eec29177;animation:splash-heart-appear .3s ease-out 2.15s both;pointer-events:none}
 @keyframes splash-progress-fill{to{transform:scaleX(1)}}
-@keyframes splash-bride-walk{from{left:0}to{left:83%}}
-@keyframes splash-heart-appear{to{opacity:1;transform:scale(1) translateY(-7px)}}
+@keyframes splash-flight{from{left:0;transform:translateX(-48%) translateY(0)}50%{transform:translateX(-48%) translateY(-5px)}to{left:85%;transform:translateX(-48%) translateY(0)}}
+@keyframes splash-heart-appear{to{opacity:1;transform:scale(1.13) translateY(-8px)}}
+@media(prefers-reduced-motion:reduce){.splash-traveler{animation:none;left:85%}.splash-track-fill{animation:none;transform:scaleX(1)}.splash-progress-heart{animation:none;opacity:1;transform:none}}
 
 .splash-date{font-size:12px;letter-spacing:.32em}
 .wedding-audio-prompt[hidden]{display:none!important}
@@ -315,7 +319,25 @@ body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
 })();
 </script>
 <div class="splash" id="opening" aria-label="Opening title" aria-hidden="false">
- <div class="splash-inner"><div class="splash-mark" aria-label="M and K">M<span>&amp;</span>K</div><div class="splash-names">Mattia &amp; Kirsten</div><div class="splash-progress" role="img" aria-label="Our wedding invitation is loading. A bride moves toward a waiting groom."><span class="splash-track" aria-hidden="true"><span class="splash-track-fill"></span></span><img class="splash-progress-bride" src="./assets/splash-bride.webp" alt="" aria-hidden="true" draggable="false"><img class="splash-progress-groom" src="./assets/splash-groom.webp?v=2" alt="" aria-hidden="true" draggable="false"><span class="splash-progress-heart" aria-hidden="true">♥</span></div><div class="splash-date">12. 07. 2026</div></div>
+ <div class="splash-inner"><div class="splash-mark" aria-label="M and K">M<span>&amp;</span>K</div><div class="splash-names">Mattia &amp; Kirsten</div><div class="splash-progress" role="img" aria-label="Mattia flies from Italy to Kirsten, who waits in the Philippines, as the invitation loads.">
+  <span class="splash-track" aria-hidden="true"><span class="splash-track-fill"></span></span>
+  <span class="splash-traveler" aria-hidden="true">
+    <span class="splash-it-flag"></span>
+    <img class="splash-groom-rider" src="./assets/splash-groom.webp?v=2" alt="" draggable="false">
+    <svg class="splash-plane" viewBox="0 0 70 35" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M3 21 Q19 15 57 16 L68 12 L64 21 L52 25 L22 27 L12 33 L6 32 L13 25 L2 25Z" fill="#f2d4a9" stroke="#b77835" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M22 18 L36 2 L42 3 L37 18 M24 26 L40 34 L48 33 L38 24" fill="#ddb077" stroke="#b77835" stroke-width="1.7" stroke-linejoin="round"/>
+      <circle cx="49" cy="19" r="2" fill="#78142b"/>
+    </svg>
+  </span>
+  <img class="splash-progress-bride" src="./assets/splash-bride.webp" alt="" aria-hidden="true" draggable="false">
+  <svg class="splash-ph-flag" viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path d="M0 0 H30 V10 H0Z" fill="#1649a2"/><path d="M0 10 H30 V20 H0Z" fill="#cf263a"/>
+    <path d="M0 0 L17 10 L0 20Z" fill="#fff6de"/><circle cx="5.8" cy="10" r="2.4" fill="#e5b642"/>
+    <circle cx="2.5" cy="3" r="1.2" fill="#e5b642"/><circle cx="2.5" cy="17" r="1.2" fill="#e5b642"/><circle cx="13" cy="10" r="1.2" fill="#e5b642"/>
+  </svg>
+  <span class="splash-progress-heart" aria-hidden="true">♥</span>
+</div><div class="splash-date">12. 07. 2026</div></div>
 </div>
 <main>
  <div class="content">
