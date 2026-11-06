@@ -328,6 +328,41 @@ body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
     animation:none !important;
   }
 }
+/* Elegant, lightweight scroll transitions for every invitation page.
+   Never move the split mobile cover artwork or distort portrait proportions. */
+.wedding-motion-on .wedding-reveal{
+ opacity:0;
+ transform:translate3d(0,16px,0);
+ transition:opacity 760ms cubic-bezier(.22,1,.36,1),
+            transform 760ms cubic-bezier(.22,1,.36,1);
+ transition-delay:var(--wedding-delay,0ms);
+}
+.wedding-motion-on .wedding-reveal.wedding-reveal-media{
+ transform:translate3d(0,14px,0) scale(.985);
+ transition-duration:920ms;
+}
+.wedding-motion-on .wedding-reveal.is-visible{opacity:1;transform:none}
+.wedding-motion-on .wedding-divider-reveal .wedding-transition-art{
+ opacity:0;transform:scale(.95);
+ transition:opacity 900ms ease,transform 1000ms cubic-bezier(.22,1,.36,1);
+}
+.wedding-motion-on .wedding-divider-reveal.is-visible .wedding-transition-art{
+ opacity:1;transform:scale(1);
+}
+@media(hover:hover) and (pointer:fine){
+ .info-section a.action-link,
+ .info-section button.action-link{transition:background-color .25s ease,border-color .25s ease,box-shadow .25s ease,filter .25s ease}
+ .info-section a.action-link:hover,
+ .info-section button.action-link:hover{filter:brightness(1.09);box-shadow:0 6px 22px #24000b44}
+}
+@media(prefers-reduced-motion:reduce){
+ .wedding-motion-on .wedding-reveal,
+ .wedding-motion-on .wedding-reveal.wedding-reveal-media,
+ .wedding-motion-on .wedding-divider-reveal .wedding-transition-art{
+ opacity:1!important;transform:none!important;transition:none!important;
+ }
+}
+
 </style>
 <script defer src="./config.js?v=20261106-rsvp-audio3"></script>
 <script defer src="./wedding.js?v=20261106-gesture-audio11"></script>
@@ -521,5 +556,6 @@ body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
  });
 })();
 </script>
+<script defer src="./assets/js/wedding-motion.js?v=1"></script>
 </body>
 </html>
