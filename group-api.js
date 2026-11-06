@@ -195,7 +195,7 @@ async function eventHistory(req,env){
     "FROM rsvp_member_events e "+
     "JOIN rsvp_members m ON m.id=e.member_id "+
     "JOIN rsvp_groups g ON g.id=m.group_id "+
-    (before?"WHERE e.id<? ":"")+
+    (before?"WHERE e.status IN ('attending','not_attending') AND e.id<? ":"WHERE e.status IN ('attending','not_attending') ")+
     "ORDER BY e.id DESC LIMIT ?";
   const rows=(await (before?env.DB.prepare(sql).bind(before,limit+1):env.DB.prepare(sql).bind(limit+1)).all()).results;
   const hasMore=rows.length>limit;
