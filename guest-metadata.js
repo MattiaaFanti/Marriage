@@ -6,6 +6,28 @@ const version="guest-role-corrections-2026-11-06-v4";
    two-person groups. Member IDs, RSVP statuses, updated_at, event history
    and all existing aliases are preserved. Re-entrant / safe to re-run. */
 const splitVersion="wedding-initial-household-split-v1-2026-11-06";
+const roleLabelsVersion="wedding-guest-role-labels-2026-11-07-v1";
+
+/* Rename existing D1 role values without touching guest names, groups,
+   attendance, timestamps, aliases or RSVP event history. */
+async function ensureRoleLabelMigration(env){
+  const done=await env.DB.prepare(
+    "SELECT name FROM rsvp_data_migrations WHERE name=?"
+  ).bind(roleLabelsVersion).first();
+  if(done)return;
+  await env.DB.batch([
+    env.DB.prepare(
+      "UPDATE rsvp_members SET role=CASE LOWER(TRIM(role)) "+
+      "WHEN 'ninang' THEN 'Nina' "+
+      "WHEN 'ninong' THEN 'Nino' "+
+      "WHEN 'umpeng' THEN 'Umpe' ELSE role END "+
+      "WHERE LOWER(TRIM(role)) IN ('ninang','ninong','umpeng')"
+    ),
+    env.DB.prepare(
+      "INSERT OR IGNORE INTO rsvp_data_migrations(name,applied_at) VALUES(?,?)"
+    ).bind(roleLabelsVersion,new Date().toISOString())
+  ]);
+}
 const splitGroup2="initial-butch-alexis-2026";
 const splitGroup3="initial-raphiel-rose-ann-2026";
 async function ensureInitialHouseholdSplit(env){
@@ -63,7 +85,7 @@ async function ensureInitialHouseholdSplit(env){
   await env.DB.batch(statements);
 }
 
-const roles=[["Ariel Apritado","Butch's Friends"],["Rico Vergara","Butch's Friends"],["Ante Dimaculangan","Butch's Friends"],["Arnel Ozaeta","Butch's Friends"],["Eddie Cabungkal","Butch's Friends"],["Boyet Ona","Butch's Friends"],["Norma Destura","Tita"],["Maria Cecile Sevilleno","Tita"],["Rap Sevilleno","Tito"],["Jacquie Sevilleno","Tita"],["Grande Montalbo","Umpeng"],["Rosana Acquiatan","Umpeng"],["Mar Acquiatan","Umpeng"],["Malvin James Sevilleno","Kuya"],["Mario Buccola","Zio"],["Rita Morisco","Zia"],["Angelo Mallus","Zio"],["Patrizia Fanti","Zia"]];
+const roles=[["Ariel Apritado","Butch's Friends"],["Rico Vergara","Butch's Friends"],["Ante Dimaculangan","Butch's Friends"],["Arnel Ozaeta","Butch's Friends"],["Eddie Cabungkal","Butch's Friends"],["Boyet Ona","Butch's Friends"],["Norma Destura","Tita"],["Maria Cecile Sevilleno","Tita"],["Rap Sevilleno","Tito"],["Jacquie Sevilleno","Tita"],["Grande Montalbo","Umpe"],["Rosana Acquiatan","Umpe"],["Mar Acquiatan","Umpe"],["Malvin James Sevilleno","Kuya"],["Mario Buccola","Zio"],["Rita Morisco","Zia"],["Angelo Mallus","Zio"],["Patrizia Fanti","Zia"]];
 const renames=[["Tito Rico","Rico","Tito"],["Tito Adan","Adam","Tito"],["Tito Adam","Adam","Tito"],["Adan","Adam","Tito"],["Jackie Sevilleno","Jacquie Sevilleno","Tita"]];
 let ready=false;
 let running=null;
@@ -77,7 +99,7 @@ export async function ensureGuestMetadata(env){
     const previous=await env.DB.prepare(
       "SELECT name FROM rsvp_data_migrations WHERE name=?"
     ).bind(version).first();
-    if(previous){await ensureInitialHouseholdSplit(env);ready=true;return;}
+    if(previous){await ensureInitialHouseholdSplit(env);await ensureRoleLabelMigration(env);ready=true;return;}
     const statements=[];
     for(const [oldName,newName,role] of renames){
       statements.push(env.DB.prepare(
@@ -129,6 +151,7 @@ export async function ensureGuestMetadata(env){
     ).bind(version,new Date().toISOString()));
     await env.DB.batch(statements);
     await ensureInitialHouseholdSplit(env);
+    await ensureRoleLabelMigration(env);
     ready=true;
   })().finally(()=>{running=null});
   return running;
