@@ -215,18 +215,6 @@ async function membersOf(groupId,env){
     "FROM rsvp_members WHERE group_id=? ORDER BY id"
   ).bind(groupId).all()).results||[];
 }
-async function throttle(req,env,scope="guestlookup",limit=25){
-  const ip=req.headers.get("CF-Connecting-IP")||"unknown";
-  const ipHash=await digest(ip+"|wedding-"+scope);
-  const windowStart=Math.floor(now()/900)*900;
-  await env.DB.prepare(
-    "INSERT INTO rsvp_lookup_limiter(ip_hash,window_start,attempts) VALUES(?,?,1) "+
-    "ON CONFLICT(ip_hash) DO UPDATE SET attempts=CASE WHEN window_start=excluded.window_start THEN attempts+1 ELSE 1 END,window_start=excluded.window_start"
-  ).bind(ipHash,windowStart).run();
-  const record=await env.DB.prepare("SELECT attempts FROM rsvp_lookup_limiter WHERE ip_hash=?").bind(ipHash).first();
-  return Number(record?.attempts||0)<=limit;
-}
-
 /* Return all distinct matching guest names. Matching starts at the beginning
    of a first name or another name component such as the surname.
    No names are shown for input shorter than three characters. */
@@ -245,8 +233,6 @@ async function candidates(q,env){
 async function suggest(req,env){
   const body=await parseBody(req),q=nameKey(body?.query);
   if(!validKey(q))return json({suggestions:[],needs_more_letters:false});
-  if(!await throttle(req,env,"suggestions",60))
-    return error("Too many searches. Try again later.",429);
   await ensureGuestMetadata(env);
   const hits=await candidates(q,env);
   // Show all matches; clicking one sends its precise member_id to lookup.
@@ -259,7 +245,6 @@ async function lookup(req,env){
   await ensureGuestMetadata(env);
   const body=await parseBody(req),name=nameKey(body?.name);
   if(!validKey(name))return error("Enter your first name, surname or full name (at least 3 letters).");
-  if(!await throttle(req,env))return error("Too many searches. Please try again later.",429);
   let found=[];
   if(Number.isSafeInteger(body?.member_id)&&body.member_id>0){
     // The autocomplete item is only accepted for the displayed full name.
@@ -332,8 +317,6 @@ async function sendConfirmationEmail(req,env,ctx){
   if(scriptURL.protocol!=='https:'||scriptURL.hostname!=='script.google.com'||
      !/^\/macros\/s\/[^/]+\/exec$/.test(scriptURL.pathname))
     return error('Invalid Gmail mailer URL.',503);
-  if(!await throttle(req,env,"confirmation-mail",30))
-    return error("Too many confirmation requests. Please try again later.",429);
   // Only store a one-way hash of the recipient; never persist the address.
   await env.DB.prepare(
     "CREATE TABLE IF NOT EXISTS rsvp_confirmation_deliveries ("+
@@ -355,9 +338,8 @@ async function sendConfirmationEmail(req,env,ctx){
       "DELETE FROM rsvp_confirmation_deliveries WHERE group_id=? AND email_hash=?"
     ).bind(groupId,emailHash).run();
   }
-  // No per-invitation daily quota. A household can contain several people
-  // who submit separate emails or legitimately need to retry a failed send.
-  // Existing IP throttling and recipient-level in-flight deduplication remain.
+  // No daily, household, recipient, or IP request-count quotas.
+  // Avoid claiming delivery when a matching request is still being processed.
   const claimed=await env.DB.prepare(
     "INSERT OR IGNORE INTO rsvp_confirmation_deliveries(group_id,email_hash,created_at) VALUES(?,?,?)"
   ).bind(groupId,emailHash,at).run();
