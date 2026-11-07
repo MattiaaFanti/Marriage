@@ -137,14 +137,13 @@ async function lookup(req,env){
   if(!people.length)return error("Invitation not found.",404);
   return json({household_token:await createToken(groupId,env),members:people.map(publicMember)});
 }
-/* Send the approved RSVP postcard only after the group has confirmed attendance.
-   The PNG/JPEG is rendered from the wedding site; the recipient sees a single
-   inline image (CID) in the email, not a data: URI that email clients block. */
+/* Send an RSVP confirmation through the free Gmail Apps Script integration.
+   The wedding website renders a lossless PNG; Gmail embeds it inline. */
 async function sendConfirmationEmail(req,env){
   const declared=Number(req.headers.get("content-length")||0);
-  if(declared>1550000)return error("Confirmation image is too large.",413);
+  if(declared>9800000)return error("Confirmation image is too large.",413);
   const raw=await req.text();
-  if(raw.length>1550000)return error("Confirmation image is too large.",413);
+  if(raw.length>9800000)return error("Confirmation image is too large.",413);
   let body;
   try{body=JSON.parse(raw)}catch{return error("Invalid confirmation request.");}
   const groupId=await validateToken(body?.household_token,env);
@@ -161,28 +160,26 @@ async function sendConfirmationEmail(req,env){
     !clientNames.every((name,i)=>name===attending[i].display_name))
     return error("The RSVP guest list has changed. Reopen your invitation.",409);
   const image=typeof body?.image_data_url==="string"?body.image_data_url:"";
-  const match=/^data:image\/jpeg;base64,(\/9j\/[A-Za-z0-9+/]+={0,2})$/.exec(image);
-  if(!match||match[1].length>1400000||match[1].length<1000||match[1].length%4!==0)
+  const match=/^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/.exec(image);
+  if(!match||match[1].length>9500000||match[1].length<1000||match[1].length%4!==0)
     return error("The confirmation image is invalid or too large.",400);
   try{
     const sample=atob(match[1]);
-    if(sample.charCodeAt(0)!==255||sample.charCodeAt(1)!==216||
-      sample.charCodeAt(sample.length-2)!==255||sample.charCodeAt(sample.length-1)!==217)
-      return error("The confirmation image is corrupted.",400);
-  }catch{return error("The confirmation image is corrupted.",400);}
-  // Free sending alternative: a Gmail account authorized through Google Apps Script.
-  // Resend remains supported if the Apps Script integration is not configured.
-  const gmailConfigured=Boolean(env.GMAIL_SCRIPT_URL&&env.GMAIL_SCRIPT_TOKEN);
-  if(!gmailConfigured&&(!env.RESEND_API_KEY||!env.RESEND_FROM)){
-    return error("Confirmation e-mail is not configured yet. Please contact the couple.",503);
+    if(sample.length<500||sample.length>7125000||
+      sample.charCodeAt(0)!==137||sample.charCodeAt(1)!==80||
+      sample.charCodeAt(2)!==78||sample.charCodeAt(3)!==71||
+      sample.charCodeAt(4)!==13||sample.charCodeAt(5)!==10||
+      sample.charCodeAt(6)!==26||sample.charCodeAt(7)!==10)
+      return error("The confirmation PNG image is corrupted.",400);
+  }catch{return error("The confirmation PNG image is corrupted.",400);}
+  if(!env.GMAIL_SCRIPT_URL||!env.GMAIL_SCRIPT_TOKEN){
+    return error("Gmail confirmation is not configured yet. Please contact the couple.",503);
   }
-  if(gmailConfigured){
-    let scriptURL;
-    try{scriptURL=new URL(env.GMAIL_SCRIPT_URL);}catch{return error('Invalid Gmail mailer URL.',503);}
-    if(scriptURL.protocol!=='https:'||scriptURL.hostname!=='script.google.com'||
-       !/^\/macros\/s\/[^/]+\/exec$/.test(scriptURL.pathname))
-      return error('Invalid Gmail mailer URL.',503);
-  }
+  let scriptURL;
+  try{scriptURL=new URL(env.GMAIL_SCRIPT_URL);}catch{return error('Invalid Gmail mailer URL.',503);}
+  if(scriptURL.protocol!=='https:'||scriptURL.hostname!=='script.google.com'||
+     !/^\/macros\/s\/[^/]+\/exec$/.test(scriptURL.pathname))
+    return error('Invalid Gmail mailer URL.',503);
   if(!await throttle(req,env,"confirmation-mail",5))
     return error("Too many confirmation requests. Please try again later.",429);
   // Only store a one-way hash of the recipient; never persist the address.
@@ -207,42 +204,20 @@ async function sendConfirmationEmail(req,env){
   if(!Number(claimed.meta?.changes))
     return error("A confirmation was already requested for this e-mail address today.",429);
   try{
-    if(gmailConfigured){
-      const response=await fetch(env.GMAIL_SCRIPT_URL,{
-        method:"POST",
-        headers:{"Content-Type":"text/plain; charset=utf-8"},
-        body:JSON.stringify({
-          token:env.GMAIL_SCRIPT_TOKEN,
-          to:email,
-          image_base64:match[1]
-        }),
-        redirect:"follow"
-      });
-      const details=await response.json().catch(()=>({}));
-      if(!response.ok||details.ok!==true)
-        throw Error("Gmail could not send the confirmation. Please try again later.");
-    }else{
-      const result=await fetch("https://api.resend.com/emails",{
-        method:"POST",
-        headers:{"Authorization":"Bearer "+env.RESEND_API_KEY,"Content-Type":"application/json"},
-        body:JSON.stringify({
-          from:env.RESEND_FROM,
-          to:[email],
-          subject:"Mattia & Kirsten Marriage - 07 December 2026",
-          html:'<img src="cid:wedding-confirmation" alt="Mattia and Kirsten wedding confirmation" width="560" style="display:block;width:100%;max-width:560px;height:auto;margin:0 auto;border:0;">',
-          attachments:[{
-            filename:"mattia-kirsten-wedding-confirmation.jpg",
-            content:match[1],
-            content_id:"wedding-confirmation"
-          }]
-        })
-      });
-      if(!result.ok){
-        const detail=await result.json().catch(()=>({}));
-        console.warn("[Wedding] Resend request rejected:",result.status,detail?.message||"");
-        throw Error("The e-mail provider could not send the confirmation. Please try again later.");
-      }
-    }
+    const response=await fetch(env.GMAIL_SCRIPT_URL,{
+      method:"POST",
+      headers:{"Content-Type":"text/plain; charset=utf-8"},
+      body:JSON.stringify({
+        token:env.GMAIL_SCRIPT_TOKEN,
+        to:email,
+        image_base64:match[1],
+        subject:"Mattia & Ker Marriage - Your Wedding Confirmation!"
+      }),
+      redirect:"follow"
+    });
+    const details=await response.json().catch(()=>({}));
+    if(!response.ok||details.ok!==true)
+      throw Error("Gmail could not send the confirmation. Please try again later.");
     // Only a successful provider acceptance is recorded as EMAIL.
     // Every guest in this group displays this same address in the admin panel.
     await saveEmailChoice(env,groupId,'EMAIL',email);
