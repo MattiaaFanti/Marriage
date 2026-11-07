@@ -22,21 +22,24 @@ function doPost(e) {
       return jsonResponse_({ok:false,error:'Invalid recipient'});
     }
     const raw = String(data.image_base64 || '');
-    if (raw.length < 1000 || raw.length > 1400000 || !/^\/9j\/[A-Za-z0-9+/]+={0,2}$/.test(raw)) {
+    if (raw.length < 1000 || raw.length > 9500000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(raw)) {
       return jsonResponse_({ok:false,error:'Invalid image'});
     }
     const bytes = Utilities.base64Decode(raw);
-    if (bytes.length < 500 || bytes.length > 1050000 ||
-        (bytes[0] & 255) !== 255 || (bytes[1] & 255) !== 216) {
+    if (bytes.length < 500 || bytes.length > 7125000 ||
+        (bytes[0] & 255) !== 137 || (bytes[1] & 255) !== 80 ||
+        (bytes[2] & 255) !== 78 || (bytes[3] & 255) !== 71 ||
+        (bytes[4] & 255) !== 13 || (bytes[5] & 255) !== 10 ||
+        (bytes[6] & 255) !== 26 || (bytes[7] & 255) !== 10) {
       return jsonResponse_({ok:false,error:'Invalid image'});
     }
     if (MailApp.getRemainingDailyQuota() < 1) {
       return jsonResponse_({ok:false,error:'Daily Gmail quota reached'});
     }
-    const inline = Utilities.newBlob(bytes, 'image/jpeg', 'mattia-kirsten-confirmation.jpg');
+    const inline = Utilities.newBlob(bytes, 'image/png', 'mattia-kirsten-confirmation.png');
     MailApp.sendEmail({
       to:to,
-      subject:'Mattia & Kirsten Marriage - 07 December 2026',
+      subject:'Mattia & Ker Marriage - Your Wedding Confirmation!',
       body:' ',
       htmlBody:'<img src="cid:wedding" alt="Mattia and Kirsten wedding confirmation" width="560" style="display:block;width:100%;max-width:560px;height:auto;margin:0 auto;border:0">',
       inlineImages:{wedding:inline},
