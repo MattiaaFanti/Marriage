@@ -236,7 +236,7 @@
     // the new central area. No stretching, upscaling or visible dark seam.
     const innerX=37,innerW=W-74;
     const above=c.getImageData(innerX,split-1,innerW,1).data;
-    const below=c.getImageData(innerX,split+gap,innerW,1).data;
+    // Sample a clean burgundy row before the original gold flourish, so\n    // decorative pixels cannot smear vertically through the new space.\n    const below=c.getImageData(innerX,split-7,innerW,1).data;
     const stripe=c.createImageData(innerW,gap);
     for(let yy=0;yy<gap;yy++){
       const t=yy/(gap-1);
