@@ -354,7 +354,15 @@ async function adminPatch(req,env,id){
     env.DB.prepare("UPDATE rsvp_members SET rsvp_status=?,updated_at=? WHERE id=?")
       .bind(b.status,b.status==="pending"?null:at,id),
     env.DB.prepare("INSERT INTO rsvp_member_events(member_id,previous_status,status,source,received_at) VALUES(?,?,?,'admin',?)")
-      .bind(id,member.rsvp_status,b.status,at)
+      .bind(id,member.rsvp_status,b.status,at),
+    // Only when everyone in the group is Not Attending: record NO for the
+    // confirmation email. Never erase an address while anyone still attends.
+    env.DB.prepare(
+      "INSERT INTO rsvp_confirmation_choices(group_id,choice,email,updated_at) "+
+      "SELECT ?,'NO','',? WHERE ?='not_attending' AND NOT EXISTS ("+
+      "SELECT 1 FROM rsvp_members WHERE group_id=? AND id<>? AND rsvp_status!='not_attending') "+
+      "ON CONFLICT(group_id) DO UPDATE SET choice='NO',email='',updated_at=excluded.updated_at"
+    ).bind(member.group_id,at,b.status,member.group_id,id)
   ]);
   return json({ok:true,status:b.status});
 }
