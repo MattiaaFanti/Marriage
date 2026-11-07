@@ -219,14 +219,17 @@ async function sendConfirmationEmail(req,env,ctx){
   const email=typeof body?.email==="string"?body.email.trim():"";
   if(email.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     return error("Enter a valid e-mail address.");
-  const members=await membersOf(groupId,env);
+  const members=await memberEmailRecords(env,groupId);
   if(members.some(m=>m.rsvp_status==='pending'))return error('Confirm all guest responses first.',409);
-  const attending=members.filter(m=>m.rsvp_status==='attending');
-  if(!attending.length)return error("At least one attendee is required to receive an invitation.",400);
-  const clientNames=body?.attending_names;
-  if(!Array.isArray(clientNames)||clientNames.length!==attending.length||
-    !clientNames.every((name,i)=>name===attending[i].display_name))
-    return error("The RSVP guest list has changed. Reopen your invitation.",409);
+  const targets=emailTargets(members);
+  if(!targets.length)
+    return error("The attending guests have already received confirmation.",409);
+  const clientNames=body?.attending_names,clientIds=body?.attending_member_ids;
+  if(!Array.isArray(clientNames)||!Array.isArray(clientIds)||
+    clientNames.length!==targets.length||clientIds.length!==targets.length||
+    !targets.every((member,i)=>clientNames[i]===member.display_name&&
+      Number(clientIds[i])===Number(member.id)))
+    return error("The guests awaiting email have changed. Reopen your invitation.",409);
   const image=typeof body?.image_data_url==="string"?body.image_data_url:"";
   const match=/^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/.exec(image);
   if(!match||match[1].length>9500000||match[1].length<1000||match[1].length%4!==0)
@@ -259,17 +262,13 @@ async function sendConfirmationEmail(req,env,ctx){
     "PRIMARY KEY(group_id,email_hash))"
   ).run();
   await ensureEmailChoices(env);
-  const emailHash=await digest(groupId+"|"+email.toLowerCase());
+  // A different guest in this same invitation may use the same email
+  // address, or may supply a distinct one. Deduplicate each recipient set.
+  const emailHash=await digest(groupId+"|"+targets.map(m=>m.id).join(",")+"|"+email.toLowerCase());
   const at=now();
   await env.DB.prepare(
     "DELETE FROM rsvp_confirmation_deliveries WHERE created_at<?"
   ).bind(at-86400).run();
-  const previous=await env.DB.prepare(
-    "SELECT choice,email FROM rsvp_confirmation_choices WHERE group_id=?"
-  ).bind(groupId).first();
-  if(previous?.choice==="EMAIL"&&String(previous.email||"").toLowerCase()===email.toLowerCase()){
-    return json({ok:true,sent:true,already_sent:true});
-  }
   const pending=await env.DB.prepare(
     "SELECT created_at FROM rsvp_confirmation_deliveries WHERE group_id=? AND email_hash=?"
   ).bind(groupId,emailHash).first();
@@ -312,8 +311,9 @@ async function sendConfirmationEmail(req,env,ctx){
       const details=await response.json().catch(()=>({}));
       if(!response.ok||details.ok!==true)
         throw Error("Gmail did not accept the wedding confirmation.");
-      // Store the recipient address only after Gmail returns success.
-      await saveEmailChoice(env,groupId,"EMAIL",email);
+      // Record this address ONLY for members included in this delivery.
+      // Existing confirmation addresses for others are never overwritten.
+      await saveMemberEmailChoices(env,targets,"EMAIL",email);
       console.log("[Wedding RSVP] Gmail accepted delivery",{
         group_id:groupId,
         gmail_request_ms:Date.now()-gmailStartedAt,
