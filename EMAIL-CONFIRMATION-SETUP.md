@@ -22,7 +22,7 @@ Use an existing personal Gmail account to send the RSVP confirmation postcard. N
 - Cloudflare validates the group token and attendees in D1 and sends via the Google Apps Script endpoint. The sender is the Gmail account that deployed the script.
 - Email subject: **Mattia & Kirsten Marriage - 07 December 2026**. The email HTML body consists only of the inline image.
 - Skip saves **NO** for the group. Sending successfully saves the recipient email for the entire group. A new RSVP clears previous email choices; resetting all guests clears them.
-- The RSVP dashboard has an Email column beside a narrower Role column. Pending rows are blank; declined/no-email rows display NO. Full email addresses are displayed after **Unlock emails** with the existing admin password.
+- The RSVP dashboard has an Email column beside a narrower Role column. Pending rows are blank; declined/no-email rows display NO. Full email addresses are visible without a password on the public admin dashboard and shared by the entire household.
 
 ## Notes and limits
 
