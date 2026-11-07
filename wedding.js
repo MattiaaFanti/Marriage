@@ -415,11 +415,11 @@
       const names=recipients.map(m=>m.name);
       const memberIds=recipients.map(m=>Number(m.id));
       const imageKey=recipients.map(m=>Number(m.id)+':'+m.name).join('|');
-      // Initiate image generation and the Cloudflare request immediately.
-      // They are independent of the popup's two-second display timer.
+      // Prepare the image and submit it immediately; the popup opens only
+      // after Cloudflare acknowledges responsibility for the queued email.
       state.busy=true;state.error='';
       state.sendingPhase='Preparing your confirmation email…';render();
-      let submitted=null,submitError=null;
+      let submitted=null;
       const submission=(async()=>{
         const prepared=state.preparedImageKey===imageKey&&state.preparedImage?
           await state.preparedImage:null;
@@ -437,37 +437,28 @@
           throw Error(data.error||'The confirmation could not be submitted.');
         return data;
       })();
-      // Attach rejection handlers immediately to avoid unhandled errors.
-      submission.then(data=>{
-        submitted=data;
-        if(generation!==lookupGeneration||modal.hidden)return;
-        if(state.step==='emailQueued'&&data.sent){
-          state.step='emailSent';state.emailChoice='EMAIL';render();
-        }
-      },err=>{
-        submitError=err;
+      // The browser must stay on the progress screen until the Worker has
+      // accepted the PNG and recipient and registered the delivery request.
+      // Only then is closing the tab safe from browser-side cancellation.
+      // Do NOT wait for Gmail itself: ctx.waitUntil owns that background work.
+      try{
+        submitted=await submission;
+        if(generation!==lookupGeneration)return;
+        if(!submitted?.queued&&!submitted?.sent)
+          throw Error('The confirmation service did not accept the email request.');
+        state.emailChoice=submitted.sent?'EMAIL':'QUEUED';
+        state.step=submitted.sent?'emailSent':'emailQueued';
+      }catch(err){
+        if(generation!==lookupGeneration)return;
         console.error('Wedding e-mail submission failed:',err);
-        if(generation!==lookupGeneration||modal.hidden)return;
-        if(state.step==='emailQueued'){
-          state.step='done';state.error=err.message||'Email could not be submitted.';render();
-        }
-      });
-      // Show the processing popup within two seconds, regardless of image
-      // preparation/upload or Cloudflare response time. The upload continues
-      // independently; a later rejection is displayed while the page is open.
-      // This is NOT a delivery confirmation.
-      await new Promise(resolve=>setTimeout(resolve,2000));
-      if(generation!==lookupGeneration)return;
-      state.busy=false;state.sendingPhase='';
-      if(submitError){
         state.step='done';
-        state.error=submitError.message||'Email could not be submitted.';
-      }else if(submitted?.sent){
-        state.emailChoice='EMAIL';state.step='emailSent';
-      }else{
-        state.step='emailQueued';
+        state.error=err.message||'Email could not be submitted. Please retry.';
+      }finally{
+        if(generation===lookupGeneration){
+          state.busy=false;state.sendingPhase='';
+          if(!modal.hidden)render();
+        }
       }
-      render();
       return;
     }
     if(kind==='retrySearch'){open();return;}
