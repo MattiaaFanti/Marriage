@@ -12,33 +12,120 @@
   document.querySelectorAll('[data-wedding-date]').forEach(n => n.textContent = 'MONDAY · 07 DECEMBER 2026');
   document.querySelectorAll('[data-wedding-address]').forEach(n => n.textContent = cfg.address || 'Mataas Na Kahoy, Lipa, Batangas, Philippines');
   document.querySelectorAll('[data-map-link]').forEach(n => n.href = cfg.mapUrl);
-  const soundtrack = document.createElement('audio');
-  const backupMusic = './ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
-  soundtrack.src = cfg.musicFile || backupMusic;
-  let musicFallbackUsed = false;
-  soundtrack.addEventListener('error', () => {
-    if (musicFallbackUsed) return;
-    musicFallbackUsed = true;
-    soundtrack.src = backupMusic;
-    soundtrack.load();
-    soundtrack.play().catch(() => {});
-  });
-  soundtrack.loop = true;
-  soundtrack.autoplay = true;
-  soundtrack.preload = 'auto';
-  soundtrack.volume = 0.18;
-  soundtrack.setAttribute('playsinline','');
-  document.body.appendChild(soundtrack);
-  let playing = false;
-  function startMusic(){
-    if (playing) return;
-    soundtrack.play().then(()=>playing=true).catch(()=>{});
+  /* One-gesture Web Audio playback, without an HTML media player.
+     The AudioContext is resumed synchronously on the first user gesture.
+     The MP3 can finish loading afterwards; no second interaction is needed. */
+  const AudioContextType=window.AudioContext||window.webkitAudioContext;
+  const fallbackMusic='./ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
+  const musicFiles=[...new Set([cfg.musicFile,fallbackMusic].filter(Boolean))];
+  const audioVisible=()=>!document.hidden&&document.visibilityState!=='hidden';
+  let musicContext=null,decodedMusic=null,decodeTask=null,musicSource=null,musicGain=null;
+  let musicWanted=false;
+
+  function playDecodedMusic(){
+    if(!audioVisible()||!musicWanted||musicSource||!decodedMusic||
+       !musicContext||musicContext.state!=='running')return;
+    try{
+      const source=musicContext.createBufferSource();
+      const gain=musicContext.createGain();
+      source.buffer=decodedMusic;
+      source.loop=true;
+      gain.gain.value=0.18;
+      source.connect(gain);
+      gain.connect(musicContext.destination);
+      musicSource=source;
+      musicGain=gain;
+      source.start(0);
+    }catch(error){
+      console.warn('[Wedding audio] Start error:',error?.message);
+      musicSource=null;
+      if(musicGain){try{musicGain.disconnect()}catch(_){} musicGain=null;}
+    }
   }
+
+  function getMusicContext(){
+    if(!AudioContextType)return null;
+    if(!musicContext||musicContext.state==='closed'){
+      musicContext=new AudioContextType();
+      musicContext.addEventListener('statechange',playDecodedMusic);
+    }
+    return musicContext;
+  }
+
+  function loadMusic(){
+    if(decodedMusic)return Promise.resolve(decodedMusic);
+    if(decodeTask)return decodeTask;
+    const ctx=getMusicContext();
+    if(!ctx)return Promise.resolve(null);
+    decodeTask=(async()=>{
+      for(const file of musicFiles){
+        try{
+          const response=await fetch(file,{cache:'force-cache'});
+          if(!response.ok)continue;
+          const bytes=await response.arrayBuffer();
+          if(!bytes.byteLength)continue;
+          const buffer=await ctx.decodeAudioData(bytes);
+          if(buffer){
+            decodedMusic=buffer;
+            playDecodedMusic();
+            return buffer;
+          }
+        }catch(error){
+          console.warn('[Wedding audio] Music file error:',error?.message);
+        }
+      }
+      return null;
+    })().finally(()=>{decodeTask=null});
+    return decodeTask;
+  }
+
+  function startMusic(){
+    if(!audioVisible()||!AudioContextType)return;
+    musicWanted=true;
+    try{
+      const ctx=getMusicContext();
+      // Crucial: resume() is called directly inside the gesture callback.
+      if(ctx.state!=='running'){
+        ctx.resume().then(playDecodedMusic).catch(error=>{
+          if(error?.name!=='NotAllowedError')
+            console.warn('[Wedding audio] Resume error:',error?.message);
+        });
+      }
+      void loadMusic();
+      playDecodedMusic();
+    }catch(error){
+      console.warn('[Wedding audio] Initialization error:',error?.message);
+    }
+  }
+
+  function stopMusic(){
+    musicWanted=false;
+    if(musicSource){
+      try{musicSource.stop(0)}catch(_){}
+      try{musicSource.disconnect()}catch(_){}
+      musicSource=null;
+    }
+    if(musicGain){
+      try{musicGain.disconnect()}catch(_){}
+      musicGain=null;
+    }
+    if(musicContext&&musicContext.state==='running')
+      musicContext.suspend().catch(()=>{});
+  }
+
+  // Autoplay is attempted where allowed; otherwise the first gesture starts it.
   startMusic();
-  document.addEventListener('DOMContentLoaded', startMusic, {once:true});
-  window.addEventListener('load', startMusic, {once:true});
-  // When audible autoplay is blocked, the first natural gesture starts music.
-  ['pointerdown','keydown','touchstart'].forEach(e=>document.addEventListener(e,startMusic,{passive:true}));
+  document.addEventListener('DOMContentLoaded',startMusic,{once:true});
+  window.addEventListener('load',startMusic,{once:true});
+  for(const eventName of ['pointerdown','touchstart','click','keydown']){
+    document.addEventListener(eventName,startMusic,{capture:true,passive:true});
+  }
+  document.addEventListener('visibilitychange',()=>{
+    if(audioVisible())startMusic();else stopMusic();
+  });
+  window.addEventListener('pagehide',stopMusic);
+  window.addEventListener('pageshow',()=>{if(audioVisible())startMusic()});
+  document.addEventListener('freeze',stopMusic);
 
   // All guest data is queried from D1; no private guest list is embedded in GitHub Pages.
   const modal=document.createElement('div');
