@@ -452,12 +452,11 @@
           state.step='done';state.error=err.message||'Email could not be submitted.';render();
         }
       });
-      // The acknowledgement screen appears after TWO seconds, even if the
-      // image upload is still underway. This never cancels the submission.
+      // Show the processing popup within two seconds, regardless of image
+      // preparation/upload or Cloudflare response time. The upload continues
+      // independently; a later rejection is displayed while the page is open.
+      // This is NOT a delivery confirmation.
       await new Promise(resolve=>setTimeout(resolve,2000));
-      // Never show an accepted/sending message until Cloudflare has returned
-      // success. Gmail delivery itself continues independently in the Worker.
-      try{submitted=await submission;}catch(err){submitError=err;}
       if(generation!==lookupGeneration)return;
       state.busy=false;state.sendingPhase='';
       if(submitError){
