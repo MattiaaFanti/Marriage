@@ -92,3 +92,12 @@ CREATE TABLE IF NOT EXISTS rsvp_confirmation_choices (
   email TEXT NOT NULL DEFAULT '',
   updated_at TEXT NOT NULL
 );
+
+-- A manual change by the admin clears the confirmation address only on
+-- that person's row. Group members not edited retain their shared email.
+-- Clear markers survive Pending -> Attending manual transitions and are
+-- reset only by a new guest RSVP submission or an explicit Reset All.
+CREATE TABLE IF NOT EXISTS rsvp_member_email_clears (
+  member_id INTEGER PRIMARY KEY,
+  cleared_at TEXT NOT NULL
+);
