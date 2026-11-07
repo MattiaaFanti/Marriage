@@ -47,6 +47,14 @@ async function ensureEmailChoices(env){
     "email TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL)"
   ).run();
 }
+// A manual admin edit clears the visible email only for that individual.
+ // The shared group email must remain available to other Attending members.
+async function ensureMemberEmailClears(env){
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS rsvp_member_email_clears ("+
+    "member_id INTEGER PRIMARY KEY, cleared_at TEXT NOT NULL)"
+  ).run();
+}
 async function saveEmailChoice(env,groupId,choice,email=''){
   await ensureEmailChoices(env);
   await env.DB.prepare(
@@ -272,7 +280,14 @@ async function submit(req,env){
   }
   if(members.some(m=>!answers.has(Number(m.id))))return error("You must answer for every person in your group.");
   await ensureEmailChoices(env);
+  await ensureMemberEmailClears(env);
   const at=new Date().toISOString(),statements=[];
+  // A fresh guest-submitted RSVP supersedes any manual per-member email clear.
+  // That does NOT restore an old email: the group choice is deleted below.
+  statements.push(env.DB.prepare(
+    "DELETE FROM rsvp_member_email_clears WHERE member_id IN ("+
+    "SELECT id FROM rsvp_members WHERE group_id=?)"
+  ).bind(groupId));
   // A new RSVP submission clears the previous email decision for the whole
   // invitation. If nobody attends, the mail choice is automatically NO.
   const anyAttending=[...answers.values()].some(status=>status==='attending');
@@ -302,13 +317,17 @@ async function overview(env){
       "ELSE 4 END,id"
   ).all()).results;
   await ensureEmailChoices(env);
+  await ensureMemberEmailClears(env);
   const people=(await env.DB.prepare(
     "SELECT m.id,m.group_id,m.display_name,m.role,m.rsvp_status,m.updated_at,"+
     "COALESCE(c.choice,'') AS email_choice,"+
     "CASE WHEN m.rsvp_status='pending' THEN '' "+
+    "WHEN cleared.member_id IS NOT NULL THEN '' "+
     "WHEN c.choice='NO' THEN 'NO' "+
     "WHEN c.choice='EMAIL' THEN c.email ELSE '' END AS email "+
-    "FROM rsvp_members m LEFT JOIN rsvp_confirmation_choices c ON c.group_id=m.group_id "+
+    "FROM rsvp_members m "+
+    "LEFT JOIN rsvp_confirmation_choices c ON c.group_id=m.group_id "+
+    "LEFT JOIN rsvp_member_email_clears cleared ON cleared.member_id=m.id "+
     "ORDER BY m.group_id,m.id"
   ).all()).results;
   // These seven guests attend virtually when they choose Attending. They
@@ -345,8 +364,15 @@ async function adminPatch(req,env,id){
     return json({ok:true,unchanged:true});
   }
   await ensureEmailChoices(env);
+  await ensureMemberEmailClears(env);
   const at=new Date().toISOString();
   await env.DB.batch([
+    // Clearing a person's email is persistent across Pending -> Attending
+    // and only affects this member, never their group mates.
+    env.DB.prepare(
+      "INSERT INTO rsvp_member_email_clears(member_id,cleared_at) VALUES(?,?) "+
+      "ON CONFLICT(member_id) DO UPDATE SET cleared_at=excluded.cleared_at"
+    ).bind(id,at),
     env.DB.prepare(
       "DELETE FROM rsvp_confirmation_choices WHERE group_id=? AND NOT EXISTS ("+
       "SELECT 1 FROM rsvp_members WHERE group_id=? AND id<>? AND rsvp_status='attending') AND ?!='attending'"
@@ -373,16 +399,19 @@ async function resetAll(req,env){
     "SELECT COUNT(*) AS total FROM rsvp_members WHERE rsvp_status!='pending'"
   ).first();
   await ensureEmailChoices(env);
+  await ensureMemberEmailClears(env);
   const stale=await env.DB.prepare(
     "SELECT COUNT(*) AS total FROM rsvp_members WHERE rsvp_status!='pending' OR updated_at IS NOT NULL"
   ).first();
   const choices=await env.DB.prepare("SELECT COUNT(*) AS total FROM rsvp_confirmation_choices").first();
-  if(!Number(stale?.total||0)&&!Number(choices?.total||0))return json({ok:true,updated:0});
+  const memberClears=await env.DB.prepare("SELECT COUNT(*) AS total FROM rsvp_member_email_clears").first();
+  if(!Number(stale?.total||0)&&!Number(choices?.total||0)&&!Number(memberClears?.total||0))return json({ok:true,updated:0});
   const at=new Date().toISOString();
   await env.DB.batch([
     env.DB.prepare("INSERT INTO rsvp_member_events(member_id,previous_status,status,source,received_at) SELECT id,rsvp_status,'pending','admin',? FROM rsvp_members WHERE rsvp_status!='pending'").bind(at),
     env.DB.prepare("UPDATE rsvp_members SET rsvp_status='pending',updated_at=NULL WHERE rsvp_status!='pending' OR updated_at IS NOT NULL"),
-    env.DB.prepare("DELETE FROM rsvp_confirmation_choices")
+    env.DB.prepare("DELETE FROM rsvp_confirmation_choices"),
+    env.DB.prepare("DELETE FROM rsvp_member_email_clears")
   ]);
   return json({ok:true,updated:Number(count?.total||0)});
 }
