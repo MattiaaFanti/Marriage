@@ -7,6 +7,34 @@ const version="guest-role-corrections-2026-11-06-v4";
    and all existing aliases are preserved. Re-entrant / safe to re-run. */
 const splitVersion="wedding-initial-household-split-v1-2026-11-06";
 const roleLabelsVersion="wedding-guest-role-labels-2026-11-07-v1";
+const adanFullNameVersion="wedding-adam-adan-deguidoy-2026-11-07-v1";
+
+/* One-off update of guest #35's display name, preserving the original
+   RSVP answers, group, timestamps and event history. Existing aliases
+   remain valid, so old invitation searches for Adam still work. */
+async function ensureAdanFullNameMigration(env){
+  const done=await env.DB.prepare(
+    "SELECT name FROM rsvp_data_migrations WHERE name=?"
+  ).bind(adanFullNameVersion).first();
+  if(done)return;
+  const rows=(await env.DB.prepare(
+    "SELECT id,display_name FROM rsvp_members WHERE display_name IN ('Adam','Adan Deguidoy')"
+  ).all()).results||[];
+  if(rows.length!==1)throw new Error("Cannot safely rename Adam; expected exactly one guest.");
+  const id=rows[0].id,now=new Date().toISOString();
+  const statements=[
+    env.DB.prepare("UPDATE rsvp_members SET display_name='Adan Deguidoy' WHERE id=?").bind(id)
+  ];
+  for(const alias of ['adan deguidoy','deguidoy','adan','adam','tito adan','tito adam']){
+    statements.push(env.DB.prepare(
+      "INSERT OR IGNORE INTO rsvp_aliases(alias,member_id) VALUES(?,?)"
+    ).bind(alias,id));
+  }
+  statements.push(env.DB.prepare(
+    "INSERT OR IGNORE INTO rsvp_data_migrations(name,applied_at) VALUES(?,?)"
+  ).bind(adanFullNameVersion,now));
+  await env.DB.batch(statements);
+}
 
 /* Rename existing D1 role values without touching guest names, groups,
    attendance, timestamps, aliases or RSVP event history. */
@@ -99,7 +127,7 @@ export async function ensureGuestMetadata(env){
     const previous=await env.DB.prepare(
       "SELECT name FROM rsvp_data_migrations WHERE name=?"
     ).bind(version).first();
-    if(previous){await ensureInitialHouseholdSplit(env);await ensureRoleLabelMigration(env);ready=true;return;}
+    if(previous){await ensureInitialHouseholdSplit(env);await ensureRoleLabelMigration(env);await ensureAdanFullNameMigration(env);ready=true;return;}
     const statements=[];
     for(const [oldName,newName,role] of renames){
       statements.push(env.DB.prepare(
@@ -152,6 +180,7 @@ export async function ensureGuestMetadata(env){
     await env.DB.batch(statements);
     await ensureInitialHouseholdSplit(env);
     await ensureRoleLabelMigration(env);
+    await ensureAdanFullNameMigration(env);
     ready=true;
   })().finally(()=>{running=null});
   return running;
