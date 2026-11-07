@@ -297,14 +297,16 @@ async function sendConfirmationEmail(req,env,ctx){
   const email=typeof body?.email==="string"?body.email.trim():"";
   if(email.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     return error("Enter a valid e-mail address.");
-  const members=await membersOf(groupId,env);
-  if(members.some(m=>m.rsvp_status==='pending'))return error('Confirm all guest responses first.',409);
-  const attending=members.filter(m=>m.rsvp_status==='attending');
-  if(!attending.length)return error("At least one attendee is required to receive an invitation.",400);
-  const clientNames=body?.attending_names;
-  if(!Array.isArray(clientNames)||clientNames.length!==attending.length||
-    !clientNames.every((name,i)=>name===attending[i].display_name))
-    return error("The RSVP guest list has changed. Reopen your invitation.",409);
+  const members=await memberEmailRecords(env,groupId);
+  if(members.some(m=>m.rsvp_status==='pending'))
+    return error("Confirm all guest responses first.",409);
+  const targets=unsentAttendees(members);
+  if(!targets.length)return error("No attendee is awaiting an email confirmation.",409);
+  const clientNames=body?.attending_names,clientIds=body?.attending_member_ids;
+  if(!Array.isArray(clientNames)||!Array.isArray(clientIds)||
+     clientNames.length!==targets.length||clientIds.length!==targets.length||
+     !targets.every((m,i)=>clientNames[i]===m.display_name&&Number(clientIds[i])===Number(m.id)))
+    return error("The confirmation recipients changed. Reopen your invitation.",409);
   const image=typeof body?.image_data_url==="string"?body.image_data_url:"";
   const match=/^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/.exec(image);
   if(!match||match[1].length>9500000||match[1].length<1000||match[1].length%4!==0)
@@ -336,26 +338,17 @@ async function sendConfirmationEmail(req,env,ctx){
     "group_id INTEGER NOT NULL,email_hash TEXT NOT NULL,created_at INTEGER NOT NULL,"+
     "PRIMARY KEY(group_id,email_hash))"
   ).run();
-  await ensureEmailChoices(env);
-  const emailHash=await digest(groupId+"|"+email.toLowerCase());
+  const emailHash=await digest(groupId+"|"+targets.map(m=>m.id).join(",")+"|"+email.toLowerCase());
   const at=now();
   await env.DB.prepare(
     "DELETE FROM rsvp_confirmation_deliveries WHERE created_at<?"
   ).bind(at-86400).run();
-  const previous=await env.DB.prepare(
-    "SELECT choice,email FROM rsvp_confirmation_choices WHERE group_id=?"
-  ).bind(groupId).first();
-  if(previous?.choice==="EMAIL"&&String(previous.email||"").toLowerCase()===email.toLowerCase()){
-    return json({ok:true,sent:true,already_sent:true});
-  }
   const pending=await env.DB.prepare(
     "SELECT created_at FROM rsvp_confirmation_deliveries WHERE group_id=? AND email_hash=?"
   ).bind(groupId,emailHash).first();
-  // Old interrupted requests may leave an orphaned limiter row. After 45s,
-  // permit a new attempt; do not mistake the row for a completed delivery.
+  // If the recipients are still unsent, an old limiter row is not evidence
+  // that Gmail accepted anything. Drop it instead of returning false success.
   if(pending){
-    if(at-Number(pending.created_at)<45)
-      return json({ok:true,queued:true,already_queued:true},202);
     await env.DB.prepare(
       "DELETE FROM rsvp_confirmation_deliveries WHERE group_id=? AND email_hash=?"
     ).bind(groupId,emailHash).run();
@@ -369,7 +362,16 @@ async function sendConfirmationEmail(req,env,ctx){
     "INSERT OR IGNORE INTO rsvp_confirmation_deliveries(group_id,email_hash,created_at) VALUES(?,?,?)"
   ).bind(groupId,emailHash,at).run();
   if(!Number(claimed.meta?.changes))
-    return json({ok:true,queued:true,already_queued:true},202);
+    return error("An email request for these guests is already being processed.",409);
+  try{
+    // The queued address becomes visible to the admin before HTTP returns.
+    await queueIndividualEmails(env,targets,email,emailHash);
+  }catch(err){
+    await env.DB.prepare(
+      "DELETE FROM rsvp_confirmation_deliveries WHERE group_id=? AND email_hash=?"
+    ).bind(groupId,emailHash).run().catch(()=>{});
+    return error(err?.message||"Could not accept the email request.",409);
+  }
 
   // The request belongs to the Cloudflare Worker. Its lifetime no longer
   // depends on a browser window, page navigation, or dismissal of the modal.
@@ -390,8 +392,8 @@ async function sendConfirmationEmail(req,env,ctx){
       const details=await response.json().catch(()=>({}));
       if(!response.ok||details.ok!==true)
         throw Error("Gmail did not accept the wedding confirmation.");
-      // Store the recipient address only after Gmail returns success.
-      await saveEmailChoice(env,groupId,"EMAIL",email);
+      // Gmail accepted the message: finalize just these recipients.
+      await confirmIndividualEmails(env,targets,email,emailHash);
       console.log("[Wedding RSVP] Gmail accepted delivery",{
         group_id:groupId,
         gmail_request_ms:Date.now()-gmailStartedAt,
@@ -404,6 +406,8 @@ async function sendConfirmationEmail(req,env,ctx){
         since_worker_request_ms:Date.now()-handlingStartedAt,
         error:err?.message||String(err)
       });
+      // Clear provisional addresses only if Gmail explicitly failed.
+      await clearIndividualQueue(env,targets,emailHash).catch(()=>{});
       await env.DB.prepare(
         "DELETE FROM rsvp_confirmation_deliveries WHERE group_id=? AND email_hash=?"
       ).bind(groupId,emailHash).run().catch(()=>{});
