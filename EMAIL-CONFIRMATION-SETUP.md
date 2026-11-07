@@ -44,7 +44,19 @@ Apps Script quotas: https://developers.google.com/apps-script/guides/services/qu
 
 ## Updating manual RSVP statuses
 
-- A manual change to one member does **not** clear the group's saved confirmation address as long as another member is still Attending.
-- A Pending member displays a blank Email column, while the rest of the group retains its shared address.
-- When everyone has been changed to Not Attending, the group Email value becomes **NO**.
-- When nobody attends but some members are still Pending, the previous email choice is cleared. Previously deleted email addresses cannot be recovered from the rate-limit hash.
+- A manual status change to **any** guest clears the email **only on that guest's row**. The addresses of the other Attending guests remain unchanged.
+- The per-guest clear is stored in D1 (`rsvp_member_email_clears`), and is retained through manual `Not Attending → Pending (Reset) → Attending` changes. An old group address will not reappear automatically.
+- The first deployment automatically repairs any previously edited guest whose old email is still visible after an admin change.
+- The group preference is set to NO if everyone is manually marked Not Attending; an individual manually edited row nevertheless stays blank. Guests with no manual email clear still show NO where appropriate.
+- A **new RSVP submitted by the guest** clears the old email choice and per-person clear markers. The email becomes visible again only after sending and successful acceptance of a **new** confirmation.
+- Reset All clears both group email preferences and the per-guest clear markers.
+
+## Diagnose email timing
+
+Cloudflare Worker logs now emit three timing metrics without logging recipient addresses:
+
+- `worker_setup_ms`: receipt of the image request through validation and background handoff.
+- `gmail_request_ms`: outbound request to Google Apps Script through its successful response.
+- `since_worker_request_ms`: total Worker time to Google acknowledgment.
+
+The elapsed time between Google's acceptance and the message appearing in the recipient's inbox is controlled by email delivery and cannot be measured by the Worker. `ctx.waitUntil()` does not impose a built-in waiting period, but its background work is limited to 30 seconds after the Worker response.
