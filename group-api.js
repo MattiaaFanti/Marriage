@@ -111,6 +111,96 @@ async function lookup(req,env){
   if(!people.length)return error("Invitation not found.",404);
   return json({household_token:await createToken(groupId,env),members:people.map(publicMember)});
 }
+/* Send the approved RSVP postcard only after the group has confirmed attendance.
+   The PNG/JPEG is rendered from the wedding site; the recipient sees a single
+   inline image (CID) in the email, not a data: URI that email clients block. */
+async function sendConfirmationEmail(req,env){
+  const declared=Number(req.headers.get("content-length")||0);
+  if(declared>1550000)return error("Confirmation image is too large.",413);
+  const raw=await req.text();
+  if(raw.length>1550000)return error("Confirmation image is too large.",413);
+  let body;
+  try{body=JSON.parse(raw)}catch{return error("Invalid confirmation request.");}
+  const groupId=await validateToken(body?.household_token,env);
+  if(!groupId)return error("Your invitation session expired. Search your name again.",403);
+  const email=typeof body?.email==="string"?body.email.trim():"";
+  if(email.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    return error("Enter a valid e-mail address.");
+  const members=await membersOf(groupId,env);
+  const attending=members.filter(m=>m.rsvp_status==='attending');
+  if(!attending.length)return error("At least one attendee is required to receive an invitation.",400);
+  const clientNames=body?.attending_names;
+  if(!Array.isArray(clientNames)||clientNames.length!==attending.length||
+    !clientNames.every((name,i)=>name===attending[i].display_name))
+    return error("The RSVP guest list has changed. Reopen your invitation.",409);
+  const image=typeof body?.image_data_url==="string"?body.image_data_url:"";
+  const match=/^data:image\/jpeg;base64,(\/9j\/[A-Za-z0-9+/]+={0,2})$/.exec(image);
+  if(!match||match[1].length>1400000||match[1].length<1000||match[1].length%4!==0)
+    return error("The confirmation image is invalid or too large.",400);
+  try{
+    const sample=atob(match[1]);
+    if(sample.charCodeAt(0)!==255||sample.charCodeAt(1)!==216||
+      sample.charCodeAt(sample.length-2)!==255||sample.charCodeAt(sample.length-1)!==217)
+      return error("The confirmation image is corrupted.",400);
+  }catch{return error("The confirmation image is corrupted.",400);}
+  if(!env.RESEND_API_KEY||!env.RESEND_FROM){
+    return error("Confirmation e-mail is not configured yet. Please contact the couple.",503);
+  }
+  if(!await throttle(req,env,"confirmation-mail",5))
+    return error("Too many confirmation requests. Please try again later.",429);
+  // Only store a one-way hash of the recipient; never persist the address.
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS rsvp_confirmation_deliveries ("+
+    "group_id INTEGER NOT NULL,email_hash TEXT NOT NULL,created_at INTEGER NOT NULL,"+
+    "PRIMARY KEY(group_id,email_hash))"
+  ).run();
+  const emailHash=await digest(groupId+"|"+email.toLowerCase());
+  const at=now();
+  await env.DB.prepare(
+    "DELETE FROM rsvp_confirmation_deliveries WHERE created_at<?"
+  ).bind(at-86400).run();
+  const count=await env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM rsvp_confirmation_deliveries WHERE group_id=? AND created_at>=?"
+  ).bind(groupId,at-86400).first();
+  if(Number(count?.n||0)>=4)
+    return error("The confirmation e-mail limit for this invitation has been reached.",429);
+  const claimed=await env.DB.prepare(
+    "INSERT OR IGNORE INTO rsvp_confirmation_deliveries(group_id,email_hash,created_at) VALUES(?,?,?)"
+  ).bind(groupId,emailHash,at).run();
+  if(!Number(claimed.meta?.changes))
+    return error("A confirmation was already requested for this e-mail address today.",429);
+  try{
+    const result=await fetch("https://api.resend.com/emails",{
+      method:"POST",
+      headers:{"Authorization":"Bearer "+env.RESEND_API_KEY,"Content-Type":"application/json"},
+      body:JSON.stringify({
+        from:env.RESEND_FROM,
+        to:[email],
+        subject:"Mattia & Kirsten Marriage - 07 December 2026",
+        // No paragraphs, signatures, or other text: only the personalized photo.
+        html:'<img src="cid:wedding-confirmation" alt="Mattia and Kirsten wedding confirmation" width="560" style="display:block;width:100%;max-width:560px;height:auto;margin:0 auto;border:0;">',
+        attachments:[{
+          filename:"mattia-kirsten-wedding-confirmation.jpg",
+          content:match[1],
+          content_id:"wedding-confirmation"
+        }]
+      })
+    });
+    if(!result.ok){
+      const detail=await result.json().catch(()=>({}));
+      console.warn("[Wedding] Resend request rejected:",result.status,detail?.message||"");
+      throw Error("The e-mail provider could not send the confirmation. Please try again later.");
+    }
+    return json({ok:true,sent:true});
+  }catch(err){
+    // Provider failures must not consume the one-confirmation-per-recipient quota.
+    await env.DB.prepare(
+      "DELETE FROM rsvp_confirmation_deliveries WHERE group_id=? AND email_hash=?"
+    ).bind(groupId,emailHash).run().catch(()=>{});
+    return error(err?.message||"Unable to send the confirmation e-mail.",502);
+  }
+}
+
 async function submit(req,env){
   const body=await parseBody(req);
   const groupId=await validateToken(body?.household_token,env);
@@ -240,6 +330,7 @@ export async function groupedRoutes(req,env){
   if(path==="/api/household/suggest"&&method==="POST")return suggest(req,env);
   if(path==="/api/household/lookup"&&method==="POST")return lookup(req,env);
   if(path==="/api/household/confirm"&&method==="POST")return submit(req,env);
+  if(path==="/api/household/send-confirmation-email"&&method==="POST")return sendConfirmationEmail(req,env);
   if(path==="/api/admin/households"&&method==="GET")return json(await overview(env));
   if(path==="/api/admin/households/events"&&method==="GET")return eventHistory(req,env);
   if(path==="/api/admin/households/events/reset"&&method==="POST")return resetEventHistory(req,env);
