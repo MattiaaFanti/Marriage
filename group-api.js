@@ -38,8 +38,8 @@ async function parseBody(req){
   if(raw.length>12000)return null;
   try{return JSON.parse(raw||"{}")}catch{return null}
 }
-// Email preferences are stored per invitation group, not per guest. The public
-// household overview exposes only the choice, never an email address.
+// Email preferences are stored per invitation group, not per guest.
+// Owner-requested public RSVP dashboard displays the complete address.
 async function ensureEmailChoices(env){
   await env.DB.prepare(
     "CREATE TABLE IF NOT EXISTS rsvp_confirmation_choices ("+
@@ -53,22 +53,6 @@ async function saveEmailChoice(env,groupId,choice,email=''){
     "INSERT INTO rsvp_confirmation_choices(group_id,choice,email,updated_at) VALUES(?,?,?,?) "+
     "ON CONFLICT(group_id) DO UPDATE SET choice=excluded.choice,email=excluded.email,updated_at=excluded.updated_at"
   ).bind(groupId,choice,email,new Date().toISOString()).run();
-}
-async function adminEmailAuthorized(req,env){
-  const token=(req.headers.get('Authorization')||'').match(/^Bearer ([A-Za-z0-9_-]{43})$/);
-  if(!token)return false;
-  const row=await env.DB.prepare(
-    "SELECT expires_at FROM admin_sessions WHERE token_hash=?"
-  ).bind(await digest(token[1])).first();
-  return Number(row?.expires_at||0)>now();
-}
-async function householdEmails(req,env){
-  if(!await adminEmailAuthorized(req,env))return error('Admin login required to view email addresses.',401);
-  await ensureEmailChoices(env);
-  const rows=(await env.DB.prepare(
-    "SELECT group_id,email FROM rsvp_confirmation_choices WHERE choice='EMAIL'"
-  ).all()).results;
-  return json({emails:rows});
 }
 async function skipConfirmationEmail(req,env){
   const body=await parseBody(req);
@@ -319,7 +303,10 @@ async function overview(env){
   await ensureEmailChoices(env);
   const people=(await env.DB.prepare(
     "SELECT m.id,m.group_id,m.display_name,m.role,m.rsvp_status,m.updated_at,"+
-    "COALESCE(c.choice,'') AS email_choice "+
+    "COALESCE(c.choice,'') AS email_choice,"+
+    "CASE WHEN m.rsvp_status='pending' THEN '' "+
+    "WHEN c.choice='NO' THEN 'NO' "+
+    "WHEN c.choice='EMAIL' THEN c.email ELSE '' END AS email "+
     "FROM rsvp_members m LEFT JOIN rsvp_confirmation_choices c ON c.group_id=m.group_id "+
     "ORDER BY m.group_id,m.id"
   ).all()).results;
@@ -430,7 +417,6 @@ export async function groupedRoutes(req,env){
   if(path==="/api/household/confirm"&&method==="POST")return submit(req,env);
   if(path==="/api/household/send-confirmation-email"&&method==="POST")return sendConfirmationEmail(req,env);
   if(path==="/api/household/skip-confirmation-email"&&method==="POST")return skipConfirmationEmail(req,env);
-  if(path==="/api/admin/households/emails"&&method==="GET")return householdEmails(req,env);
   if(path==="/api/admin/households"&&method==="GET")return json(await overview(env));
   if(path==="/api/admin/households/events"&&method==="GET")return eventHistory(req,env);
   if(path==="/api/admin/households/events/reset"&&method==="POST")return resetEventHistory(req,env);
