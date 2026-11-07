@@ -64,6 +64,14 @@ async function ensureMemberEmailChoices(env){
       "choice TEXT NOT NULL CHECK(choice IN ('NO','EMAIL')),"+
       "email TEXT NOT NULL DEFAULT '',updated_at TEXT NOT NULL)"
     ).run();
+    // A durable acceptance record is written BEFORE Gmail starts. The admin
+    // sees this person's address immediately without claiming it was sent.
+    await env.DB.prepare(
+      "CREATE TABLE IF NOT EXISTS rsvp_member_email_pending ("+
+      "member_id INTEGER PRIMARY KEY REFERENCES rsvp_members(id) ON DELETE CASCADE,"+
+      "email TEXT NOT NULL,request_hash TEXT NOT NULL,"+
+      "status_updated_at TEXT NOT NULL DEFAULT '',queued_at INTEGER NOT NULL)"
+    ).run();
     await env.DB.prepare(
       "CREATE TABLE IF NOT EXISTS rsvp_data_migrations ("+
       "name TEXT PRIMARY KEY,applied_at TEXT NOT NULL)"
@@ -98,13 +106,19 @@ async function memberEmailRecords(env,groupId){
   await ensureMemberEmailChoices(env);
   return (await env.DB.prepare(
     "SELECT m.id,m.group_id,m.display_name,m.role,m.rsvp_status,m.updated_at,"+
-    "COALESCE(c.choice,'') AS email_choice FROM rsvp_members m "+
+    "CASE WHEN c.choice='EMAIL' THEN 'EMAIL' "+
+    "WHEN p.member_id IS NOT NULL AND p.queued_at>=? "+
+    "AND p.status_updated_at=COALESCE(m.updated_at,'') THEN 'QUEUED' "+
+    "ELSE COALESCE(c.choice,'') END AS email_choice FROM rsvp_members m "+
     "LEFT JOIN rsvp_member_email_choices c ON c.member_id=m.id "+
+    "LEFT JOIN rsvp_member_email_pending p ON p.member_id=m.id "+
     "WHERE m.group_id=? ORDER BY m.id"
-  ).bind(groupId).all()).results||[];
+  ).bind(now()-90,groupId).all()).results||[];
 }
 function emailTargets(members){
-  return members.filter(m=>m.rsvp_status==='attending'&&m.email_choice!=='EMAIL');
+  // EMAIL is already delivered, NO was deliberately skipped, QUEUED has
+  // been accepted by the Worker; only genuinely unconfirmed people retry.
+  return members.filter(m=>m.rsvp_status==='attending'&&!m.email_choice);
 }
 async function saveMemberEmailChoices(env,members,choice,email=''){
   await ensureMemberEmailChoices(env);
@@ -119,6 +133,60 @@ async function saveMemberEmailChoices(env,members,choice,email=''){
     "WHERE rsvp_member_email_choices.choice!='EMAIL'"
   ).bind(choice,email,at,m.id,m.group_id,m.updated_at)));
   await notifyRSVPUpdate(env,"guests");
+}
+async function queueMemberEmail(env,members,email,requestHash){
+  if(!members.length)throw Error("No guests to send to.");
+  const queuedAt=now();
+  const result=await env.DB.batch(members.map(m=>env.DB.prepare(
+    "INSERT INTO rsvp_member_email_pending(member_id,email,request_hash,status_updated_at,queued_at) "+
+    "SELECT id,?,?,COALESCE(updated_at,''),? FROM rsvp_members "+
+    "WHERE id=? AND group_id=? AND rsvp_status='attending' "+
+    "AND COALESCE(updated_at,'')=COALESCE(?,'') "+
+    "AND NOT EXISTS (SELECT 1 FROM rsvp_member_email_choices "+
+    "WHERE member_id=? AND choice='EMAIL') "+
+    "ON CONFLICT(member_id) DO UPDATE SET email=excluded.email,"+
+    "request_hash=excluded.request_hash,"+
+    "status_updated_at=excluded.status_updated_at,queued_at=excluded.queued_at"
+  ).bind(email,requestHash,queuedAt,m.id,m.group_id,m.updated_at,m.id)));
+  if(result.some(r=>Number(r.meta?.changes)!==1)){
+    await clearQueuedMemberEmail(env,members,requestHash);
+    throw Error("One of the guests changed RSVP while preparing the email.");
+  }
+  await notifyRSVPUpdate(env,"guests");
+}
+async function clearQueuedMemberEmail(env,members,requestHash){
+  if(!members.length)return;
+  await env.DB.batch(members.map(m=>env.DB.prepare(
+    "DELETE FROM rsvp_member_email_pending WHERE member_id=? AND request_hash=?"
+  ).bind(m.id,requestHash)));
+  await notifyRSVPUpdate(env,"guests");
+}
+async function completeMemberEmail(env,members,email,requestHash){
+  // Commit success only for the very same RSVP state and exact send attempt.
+  // Edits made while Gmail is processing cannot resurrect an old address.
+  const at=new Date().toISOString();
+  const inserts=members.map(m=>env.DB.prepare(
+    "INSERT INTO rsvp_member_email_choices(member_id,choice,email,updated_at) "+
+    "SELECT m.id,'EMAIL',?,? FROM rsvp_members m "+
+    "JOIN rsvp_member_email_pending p ON p.member_id=m.id "+
+    "WHERE m.id=? AND m.group_id=? AND m.rsvp_status='attending' "+
+    "AND COALESCE(m.updated_at,'')=COALESCE(?,'') "+
+    "AND p.request_hash=? AND p.status_updated_at=COALESCE(m.updated_at,'') "+
+    "ON CONFLICT(member_id) DO UPDATE SET choice=excluded.choice,"+
+    "email=excluded.email,updated_at=excluded.updated_at "+
+    "WHERE rsvp_member_email_choices.choice!='EMAIL'"
+  ).bind(email,at,m.id,m.group_id,m.updated_at,requestHash));
+  const removals=members.map(m=>env.DB.prepare(
+    "DELETE FROM rsvp_member_email_pending WHERE member_id=? AND request_hash=?"
+  ).bind(m.id,requestHash));
+  const results=await env.DB.batch([...inserts,...removals]);
+  const stored=results.slice(0,inserts.length).filter(r=>Number(r.meta?.changes)===1).length;
+  if(stored!==members.length)
+    console.warn("[Wedding RSVP] Some recipients changed RSVP before Gmail completed",{
+      group_id:members[0]?.group_id,stored,expected:members.length
+    });
+  await notifyRSVPUpdate(env,"guests");
+  return stored;
 }
 async function skipConfirmationEmail(req,env){
   const body=await parseBody(req);
