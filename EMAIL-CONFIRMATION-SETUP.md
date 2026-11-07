@@ -5,9 +5,11 @@ The invitation email is sent only with Gmail via Google Apps Script. No paid ema
 ## Current behavior
 
 - A confirmed RSVP with one or more attending guests offers Send email or Skip.
-- The Send button shows an animated spinner and the status 'Preparing your wedding invitation…' / 'Sending your confirmation email…'.
-- After a successful Gmail response, the modal stays open on 'Email sent successfully!' with a checkmark animation, the recipient address, and a Back to the invitation button.
-- Errors appear inside the modal; the screen does not close on failure.
+- The Send button shows an animated spinner while the site prepares and uploads the image.
+- Cloudflare validates the RSVP and starts sending the email using **`ctx.waitUntil()`**. The background request is owned by the Worker, so it is not canceled when the guest presses **OK**, closes the browser, or navigates away **after the Worker has accepted the request**.
+- The acknowledgment modal appears at least **2 seconds** after clicking Send: **“Your email is on its way!”**. This indicates acceptance/processing, not a false claim of completed delivery. A confirmed already-sent request may show **“Email sent successfully!”**.
+- Failed submissions appear inside the modal; the screen does not close on failure. Background Gmail errors are logged in Worker logs and clear the pending attempt so that it can be retried.
+- Cloudflare's background work has a **30-second `waitUntil()` window after the response**. Typical Gmail delivery takes only a few seconds; longer failures may need a separate Queue integration.
 - The confirmation card is a **lossless PNG**. The middle has chair icons, `X seat/seats reserved for you`, and only attending guests' names, in the site's Cormorant Garamond font.
 - The card includes the full reception address: **Bahay Baluk Baluk Restaurant, Maatas Na Kahoy, Lipa City, Batangas**.
 - The email subject is **Mattia & Ker Marriage - Your Wedding Confirmation!**
