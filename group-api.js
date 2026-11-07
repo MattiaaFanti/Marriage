@@ -315,8 +315,10 @@ async function adminPatch(req,env,id){
     }
     return json({ok:true,unchanged:true});
   }
+  await ensureEmailChoices(env);
   const at=new Date().toISOString();
   await env.DB.batch([
+    env.DB.prepare("DELETE FROM rsvp_confirmation_choices WHERE group_id=?").bind(member.group_id),
     env.DB.prepare("UPDATE rsvp_members SET rsvp_status=?,updated_at=? WHERE id=?")
       .bind(b.status,b.status==="pending"?null:at,id),
     env.DB.prepare("INSERT INTO rsvp_member_events(member_id,previous_status,status,source,received_at) VALUES(?,?,?,'admin',?)")
@@ -411,6 +413,9 @@ export async function groupedRoutes(req,env){
   if(path==="/api/admin/households/reset"&&method==="POST")return resetAll(req,env);
   const memberPath=path.match(/^\/api\/admin\/households\/member\/(\d+)$/);
   if(memberPath&&method==="PATCH")return adminPatch(req,env,Number(memberPath[1]));
+  // The legacy worker provides the shared admin password/session endpoints.
+  if((path==="/api/admin/login"||path==="/api/admin/logout")&&
+      (method==="POST"))return null;
   if(path.startsWith("/api/admin/"))return error("Unknown admin endpoint.",404);
   return null;
 }
