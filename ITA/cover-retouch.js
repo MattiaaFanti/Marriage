@@ -42,53 +42,84 @@
         const p=(Math.round(y)*WIDTH+Math.round(x))*4;
         return [source[p],source[p+1],source[p+2]];
       };
-      const topCenter=sample(1024,12),lowerCenter=sample(1024,981);
-      function burgundy(x,y){
-        const left=sample(25,Math.max(1,Math.min(HEIGHT-2,y)));
-        const right=sample(2022,Math.max(1,Math.min(HEIGHT-2,y)));
+      // The approved artwork contains a smooth burgundy field behind
+      // the lettering. Reconstruct that field from CLEAN regions only.
+      // Do not propagate individual nearby pixels: that caused puddles.
+      const bTop=sample(1024,12),bBottom=sample(1024,980);
+      const isBurgundy=c=>c[0]>32&&c[0]>c[1]*1.45&&
+        c[0]>c[2]*1.18&&c[1]<105&&c[2]<112;
+      const background=(x,y)=>{
         const t=Math.max(0,Math.min(1,x/(WIDTH-1)));
-        const u=Math.max(0,Math.min(1,(y-12)/969));
-        const center=[0,1,2].map(c=>topCenter[c]*(1-u)+lowerCenter[c]*u);
-        // Broad, smooth vertical and radial tones, not pixel inpainting.
-        const centerWeight=4*t*(1-t);
-        return [0,1,2].map(c=>{
-          const edges=left[c]*(1-t)+right[c]*t;
-          return Math.round(Math.max(0,Math.min(255,edges*(1-centerWeight)+center[c]*centerWeight)));
+        const v=Math.max(0,Math.min(1,y/980));
+        const l=sample(405,y),r=sample(1650,y);
+        const center=[0,1,2].map(c=>bTop[c]*(1-v)+bBottom[c]*v);
+        // Clean source colors control the edge; the center follows
+        // its original smooth vertical shading without seams.
+        const side=[0,1,2].map(c=>{
+          const left=isBurgundy(l)?l[c]:center[c];
+          const right=isBurgundy(r)?r[c]:center[c];
+          return left*(1-t)+right*t;
         });
-      }
-      function goldPixel(x,y){
-        // Keep the original gold celebration rays if a fill overlaps them.
-        if(y>290||!(x<685||x>1360))return false;
+        const centerWeight=Math.max(0,Math.min(1,4*t*(1-t)));
+        return [0,1,2].map(c=>Math.round(
+          side[c]*(1-centerWeight*.70)+center[c]*centerWeight*.70
+        ));
+      };
+      function originalGoldRay(x,y){
+        if(y<155||y>309)return false;
+        if(!((x>=525&&x<=690)||(x>=1358&&x<=1540)))return false;
         const p=(y*WIDTH+x)*4;
         const r=source[p],g=source[p+1],b=source[p+2];
-        return r>114&&g>76&&b<g*.77&&g>b*1.45;
+        return r>128&&g>75&&b<g*.79&&g>b*1.4&&r>g*1.15;
       }
-      function paintRegion(x0,y0,w,h,edge=28,keepGold=false){
-        const pixels=ctx.getImageData(x0,y0,w,h);
+      function restoreGoldRays(x0,y0,w,h,region){
+        // Expand the gold-ray mask by 2px so anti-aliased gold edges
+        // also survive. Never restore light cream lettering.
+        const mask=new Uint8Array(w*h);
+        for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++)
+          if(originalGoldRay(x0+xx,y0+yy))mask[yy*w+xx]=1;
+        let m=mask;
+        for(let pass=0;pass<2;pass++){
+          const next=m.slice();
+          for(let yy=1;yy<h-1;yy++)for(let xx=1;xx<w-1;xx++){
+            const i=yy*w+xx;
+            if(!m[i])continue;
+            for(let dy=-1;dy<=1;dy++)
+              for(let dx=-1;dx<=1;dx++)next[i+dy*w+dx]=1;
+          }
+          m=next;
+        }
+        for(let i=0;i<m.length;i++)if(m[i]){
+          const k=i*4;
+          for(let c=0;c<3;c++)region.data[k+c]=source[((y0+Math.floor(i/w))*WIDTH+(x0+i%w))*4+c];
+        }
+      }
+      function clearLettering(x0,y0,w,h,feather=24,keepRays=false){
+        const originalPixels=ctx.getImageData(x0,y0,w,h);
+        const output=ctx.createImageData(w,h);
         for(let yy=0;yy<h;yy++){
-          const absY=y0+yy;
-          const fy=Math.min(1,(yy+1)/edge,(h-yy)/edge);
+          const absY=y0+yy,fy=Math.min(1,(yy+1)/feather,(h-yy)/feather);
           for(let xx=0;xx<w;xx++){
-            const absX=x0+xx;
-            if(keepGold&&goldPixel(absX,absY))continue;
-            const fx=Math.min(1,(xx+1)/edge,(w-xx)/edge);
-            const alpha=Math.max(0,Math.min(1,fy,fx));
-            const c=burgundy(absX,absY),p=(yy*w+xx)*4;
-            for(let k=0;k<3;k++)
-              pixels.data[p+k]=Math.round(pixels.data[p+k]*(1-alpha)+c[k]*alpha);
-            // Preserve the original fully opaque pixels outside the lettering.
-            pixels.data[p+3]=255;
+            const absX=x0+xx,fx=Math.min(1,(xx+1)/feather,(w-xx)/feather);
+            const alpha=Math.max(0,Math.min(1,fx,fy));
+            const bg=background(absX,absY),p=(yy*w+xx)*4;
+            for(let c=0;c<3;c++){
+              const color=originalPixels.data[p+c]*(1-alpha)+bg[c]*alpha;
+              output.data[p+c]=Math.round(color);
+            }
+            output.data[p+3]=255;
           }
         }
-        ctx.putImageData(pixels,x0,y0);
+        if(keepRays)restoreGoldRays(x0,y0,w,h,output);
+        ctx.putImageData(output,x0,y0);
       }
-
-      // Upper text only; the original ribbons, frames and portraits are
-      // outside these areas. Clean wide rectangles avoid leftover ghost text.
-      paintRegion(525,16,1005,185,25,true);
-      paintRegion(405,181,1250,617,35,true);
-      paintRegion(586,790,880,186,28,false);
-
+      // Entire original English text footprints, with margins well away
+      // from the gold bows and both children's frames. The original
+      // English glyphs are completely covered before Italian is drawn.
+      clearLettering(555,25,946,169,22,false);    // THESE KIDS ARE
+      clearLettering(415,180,1230,620,33,true);   // getting married
+      clearLettering(565,791,931,196,27,false);   // can't wait...
+      
       // The original approved cover removes M&K / OUR E-INVITE in the
       // burgundy gap between the children's images. Keep those narrow crops.
       function cleanCenter(x0,y0,w,h,above,below){
