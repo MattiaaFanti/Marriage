@@ -48,22 +48,38 @@
       const bTop=sample(1024,12),bBottom=sample(1024,980);
       const isBurgundy=c=>c[0]>32&&c[0]>c[1]*1.45&&
         c[0]>c[2]*1.18&&c[1]<105&&c[2]<112;
+      // Build LOW-FREQUENCY color guides once. Never use isolated pixels
+      // from the original WebP, which contain JPEG/WebP noise or gold
+      // ornament edges and create visible stripes after reconstruction.
+      const guideLeft=new Float32Array(992*3);
+      const guideRight=new Float32Array(992*3);
+      function measureEdge(x,y,component){
+        let sum=0,count=0;
+        for(let dy=-20;dy<=20;dy+=4){
+          const yy=Math.max(3,Math.min(988,y+dy));
+          for(let dx=-8;dx<=8;dx+=8){
+            const c=sample(x+dx,yy);
+            if(!isBurgundy(c))continue;
+            sum+=c[component];count++;
+          }
+        }
+        const t=y/988;
+        return count>=4?sum/count:bTop[component]*(1-t)+bBottom[component]*t;
+      }
+      for(let y=0;y<992;y++)for(let c=0;c<3;c++){
+        guideLeft[y*3+c]=measureEdge(405,y,c);
+        guideRight[y*3+c]=measureEdge(1650,y,c);
+      }
       const background=(x,y)=>{
         const t=Math.max(0,Math.min(1,x/(WIDTH-1)));
+        const row=Math.max(0,Math.min(991,Math.round(y)));
         const v=Math.max(0,Math.min(1,y/980));
-        const l=sample(405,y),r=sample(1650,y);
-        const center=[0,1,2].map(c=>bTop[c]*(1-v)+bBottom[c]*v);
-        // Clean source colors control the edge; the center follows
-        // its original smooth vertical shading without seams.
-        const side=[0,1,2].map(c=>{
-          const left=isBurgundy(l)?l[c]:center[c];
-          const right=isBurgundy(r)?r[c]:center[c];
-          return left*(1-t)+right*t;
-        });
         const centerWeight=Math.max(0,Math.min(1,4*t*(1-t)));
-        return [0,1,2].map(c=>Math.round(
-          side[c]*(1-centerWeight*.70)+center[c]*centerWeight*.70
-        ));
+        return [0,1,2].map(c=>{
+          const mid=bTop[c]*(1-v)+bBottom[c]*v;
+          const edges=guideLeft[row*3+c]*(1-t)+guideRight[row*3+c]*t;
+          return Math.round(edges*(1-centerWeight*.70)+mid*centerWeight*.70);
+        });
       };
       function originalGoldRay(x,y){
         if(y<155||y>309)return false;
