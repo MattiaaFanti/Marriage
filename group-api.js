@@ -38,6 +38,48 @@ async function parseBody(req){
   if(raw.length>12000)return null;
   try{return JSON.parse(raw||"{}")}catch{return null}
 }
+// Email preferences are stored per invitation group, not per guest. The public
+// household overview exposes only the choice, never an email address.
+async function ensureEmailChoices(env){
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS rsvp_confirmation_choices ("+
+    "group_id INTEGER PRIMARY KEY, choice TEXT NOT NULL CHECK(choice IN ('NO','EMAIL')),"+
+    "email TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL)"
+  ).run();
+}
+async function saveEmailChoice(env,groupId,choice,email=''){
+  await ensureEmailChoices(env);
+  await env.DB.prepare(
+    "INSERT INTO rsvp_confirmation_choices(group_id,choice,email,updated_at) VALUES(?,?,?,?) "+
+    "ON CONFLICT(group_id) DO UPDATE SET choice=excluded.choice,email=excluded.email,updated_at=excluded.updated_at"
+  ).bind(groupId,choice,email,new Date().toISOString()).run();
+}
+async function adminEmailAuthorized(req,env){
+  const token=(req.headers.get('Authorization')||'').match(/^Bearer ([A-Za-z0-9_-]{43})$/);
+  if(!token)return false;
+  const row=await env.DB.prepare(
+    "SELECT expires_at FROM admin_sessions WHERE token_hash=?"
+  ).bind(await digest(token[1])).first();
+  return Number(row?.expires_at||0)>now();
+}
+async function householdEmails(req,env){
+  if(!await adminEmailAuthorized(req,env))return error('Admin login required to view email addresses.',401);
+  await ensureEmailChoices(env);
+  const rows=(await env.DB.prepare(
+    "SELECT group_id,email FROM rsvp_confirmation_choices WHERE choice='EMAIL'"
+  ).all()).results;
+  return json({emails:rows});
+}
+async function skipConfirmationEmail(req,env){
+  const body=await parseBody(req);
+  const groupId=await validateToken(body?.household_token,env);
+  if(!groupId)return error('Your invitation session has expired. Search your name again.',403);
+  const members=await membersOf(groupId,env);
+  if(!members.length||members.some(m=>m.rsvp_status==='pending'))
+    return error('Please confirm all guests before skipping the email.',409);
+  await saveEmailChoice(env,groupId,'NO');
+  return json({ok:true,choice:'NO'});
+}
 const publicMember=m=>({id:m.id,name:m.display_name,role:m.role,status:m.rsvp_status});
 async function membersOf(groupId,env){
   return (await env.DB.prepare("SELECT id,display_name,role,rsvp_status,updated_at FROM rsvp_members WHERE group_id=? ORDER BY id").bind(groupId).all()).results;
@@ -127,6 +169,7 @@ async function sendConfirmationEmail(req,env){
   if(email.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     return error("Enter a valid e-mail address.");
   const members=await membersOf(groupId,env);
+  if(members.some(m=>m.rsvp_status==='pending'))return error('Confirm all guest responses first.',409);
   const attending=members.filter(m=>m.rsvp_status==='attending');
   if(!attending.length)return error("At least one attendee is required to receive an invitation.",400);
   const clientNames=body?.attending_names;
@@ -191,6 +234,9 @@ async function sendConfirmationEmail(req,env){
       console.warn("[Wedding] Resend request rejected:",result.status,detail?.message||"");
       throw Error("The e-mail provider could not send the confirmation. Please try again later.");
     }
+    // Only a successful provider acceptance is recorded as EMAIL.
+    // Every guest in this group displays this same address in the admin panel.
+    await saveEmailChoice(env,groupId,'EMAIL',email);
     return json({ok:true,sent:true});
   }catch(err){
     // Provider failures must not consume the one-confirmation-per-recipient quota.
@@ -215,7 +261,17 @@ async function submit(req,env){
     answers.set(a.id,a.status);
   }
   if(members.some(m=>!answers.has(Number(m.id))))return error("You must answer for every person in your group.");
+  await ensureEmailChoices(env);
   const at=new Date().toISOString(),statements=[];
+  // A new RSVP submission clears the previous email decision for the whole
+  // invitation. If nobody attends, the mail choice is automatically NO.
+  const anyAttending=[...answers.values()].some(status=>status==='attending');
+  statements.push(env.DB.prepare("DELETE FROM rsvp_confirmation_choices WHERE group_id=?").bind(groupId));
+  if(!anyAttending){
+    statements.push(env.DB.prepare(
+      "INSERT INTO rsvp_confirmation_choices(group_id,choice,email,updated_at) VALUES(?,'NO','',?)"
+    ).bind(groupId,at));
+  }
   for(const m of members){
     const status=answers.get(Number(m.id));
     statements.push(env.DB.prepare("UPDATE rsvp_members SET rsvp_status=?,updated_at=? WHERE id=? AND group_id=?").bind(status,at,m.id,groupId));
@@ -235,7 +291,13 @@ async function overview(env){
       "WHEN group_code='family-assunta-jessica-andrea-2026' THEN 3 "+
       "ELSE 4 END,id"
   ).all()).results;
-  const people=(await env.DB.prepare("SELECT m.id,m.group_id,m.display_name,m.role,m.rsvp_status,m.updated_at FROM rsvp_members m ORDER BY m.group_id,m.id").all()).results;
+  await ensureEmailChoices(env);
+  const people=(await env.DB.prepare(
+    "SELECT m.id,m.group_id,m.display_name,m.role,m.rsvp_status,m.updated_at,"+
+    "COALESCE(c.choice,'') AS email_choice "+
+    "FROM rsvp_members m LEFT JOIN rsvp_confirmation_choices c ON c.group_id=m.group_id "+
+    "ORDER BY m.group_id,m.id"
+  ).all()).results;
   const summary={groups:groups.length,invited:people.length,pending:0,attending:0,not_attending:0};
   for(const p of people)summary[p.rsvp_status]++;
   return {groups:groups.map(g=>({...g,members:people.filter(p=>p.group_id===g.id)})),summary};
@@ -268,14 +330,17 @@ async function resetAll(req,env){
   const count=await env.DB.prepare(
     "SELECT COUNT(*) AS total FROM rsvp_members WHERE rsvp_status!='pending'"
   ).first();
+  await ensureEmailChoices(env);
   const stale=await env.DB.prepare(
     "SELECT COUNT(*) AS total FROM rsvp_members WHERE rsvp_status!='pending' OR updated_at IS NOT NULL"
   ).first();
-  if(!Number(stale?.total||0))return json({ok:true,updated:0});
+  const choices=await env.DB.prepare("SELECT COUNT(*) AS total FROM rsvp_confirmation_choices").first();
+  if(!Number(stale?.total||0)&&!Number(choices?.total||0))return json({ok:true,updated:0});
   const at=new Date().toISOString();
   await env.DB.batch([
     env.DB.prepare("INSERT INTO rsvp_member_events(member_id,previous_status,status,source,received_at) SELECT id,rsvp_status,'pending','admin',? FROM rsvp_members WHERE rsvp_status!='pending'").bind(at),
-    env.DB.prepare("UPDATE rsvp_members SET rsvp_status='pending',updated_at=NULL WHERE rsvp_status!='pending' OR updated_at IS NOT NULL")
+    env.DB.prepare("UPDATE rsvp_members SET rsvp_status='pending',updated_at=NULL WHERE rsvp_status!='pending' OR updated_at IS NOT NULL"),
+    env.DB.prepare("DELETE FROM rsvp_confirmation_choices")
   ]);
   return json({ok:true,updated:Number(count?.total||0)});
 }
@@ -318,8 +383,14 @@ function csvCell(v){
   return '"'+s.replace(/"/g,'""')+'"';
 }
 async function exportCsv(env){
-  const rows=(await env.DB.prepare("SELECT g.group_code,m.display_name,m.role,m.rsvp_status,m.updated_at FROM rsvp_members m JOIN rsvp_groups g ON g.id=m.group_id ORDER BY g.id,m.id").all()).results;
-  const cols=["group_code","display_name","role","rsvp_status","updated_at"];
+  await ensureEmailChoices(env);
+  const rows=(await env.DB.prepare(
+    "SELECT g.group_code,m.display_name,m.role,m.rsvp_status,m.updated_at,"+
+    "CASE WHEN m.rsvp_status='pending' THEN '' ELSE COALESCE(c.choice,'') END AS email_choice "+
+    "FROM rsvp_members m JOIN rsvp_groups g ON g.id=m.group_id "+
+    "LEFT JOIN rsvp_confirmation_choices c ON c.group_id=g.id ORDER BY g.id,m.id"
+  ).all()).results;
+  const cols=["group_code","display_name","role","rsvp_status","email_choice","updated_at"];
   const text="\uFEFF"+[cols.join(","),...rows.map(row=>cols.map(k=>csvCell(row[k])).join(","))].join("\r\n");
   return new Response(text,{headers:{"Content-Type":"text/csv; charset=utf-8","Content-Disposition":'attachment; filename="wedding-group-rsvp.csv"',"Cache-Control":"no-store"}});
 }
@@ -331,6 +402,8 @@ export async function groupedRoutes(req,env){
   if(path==="/api/household/lookup"&&method==="POST")return lookup(req,env);
   if(path==="/api/household/confirm"&&method==="POST")return submit(req,env);
   if(path==="/api/household/send-confirmation-email"&&method==="POST")return sendConfirmationEmail(req,env);
+  if(path==="/api/household/skip-confirmation-email"&&method==="POST")return skipConfirmationEmail(req,env);
+  if(path==="/api/admin/households/emails"&&method==="GET")return householdEmails(req,env);
   if(path==="/api/admin/households"&&method==="GET")return json(await overview(env));
   if(path==="/api/admin/households/events"&&method==="GET")return eventHistory(req,env);
   if(path==="/api/admin/households/events/reset"&&method==="POST")return resetEventHistory(req,env);
