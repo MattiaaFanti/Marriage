@@ -134,6 +134,12 @@
   function emailRecipients(){
     return attendingMembers().filter(m=>state.emailTargets.includes(Number(m.id)));
   }
+  // For a late joiner only, the confirmation card lists ALL reserved guests.
+  // This never changes the recipient list submitted to Cloudflare/Gmail.
+  function confirmationCardNames(recipients){
+    return state.emailCardSeats===null?
+      recipients.map(m=>m.name):attendingMembers().map(m=>m.name);
+  }
   function validEmail(s){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s||'').trim())&&String(s).trim().length<=254;}
   function render(){
     let html='';
@@ -413,9 +419,11 @@
       const token=state.token;
       const recipients=emailRecipients();
       const names=recipients.map(m=>m.name);
+      const cardNames=confirmationCardNames(recipients);
       const memberIds=recipients.map(m=>Number(m.id));
       const seatCount=state.emailCardSeats??recipients.length;
-      const imageKey=recipients.map(m=>Number(m.id)+':'+m.name).join('|')+'|seats:'+seatCount;
+      const imageKey=recipients.map(m=>Number(m.id)+':'+m.name).join('|')+
+        '|seats:'+seatCount+'|card:'+cardNames.join('|');
       // Prepare the image and submit it immediately; the popup opens only
       // after Cloudflare acknowledges responsibility for the queued email.
       state.busy=true;state.error='';
@@ -424,7 +432,7 @@
       const submission=(async()=>{
         const prepared=state.preparedImageKey===imageKey&&state.preparedImage?
           await state.preparedImage:null;
-        const image=prepared||await window.WEDDING_CONFIRMATION_IMAGE.createImage(names,seatCount);
+        const image=prepared||await window.WEDDING_CONFIRMATION_IMAGE.createImage(cardNames,seatCount);
         const response=await fetch(api+'/api/household/send-confirmation-email',{
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
@@ -547,9 +555,11 @@
         const recipients=emailRecipients();
         if(recipients.length&&window.WEDDING_CONFIRMATION_IMAGE){
           const seatCount=state.emailCardSeats??recipients.length;
-          state.preparedImageKey=recipients.map(m=>Number(m.id)+':'+m.name).join('|')+'|seats:'+seatCount;
+          const cardNames=confirmationCardNames(recipients);
+          state.preparedImageKey=recipients.map(m=>Number(m.id)+':'+m.name).join('|')+
+            '|seats:'+seatCount+'|card:'+cardNames.join('|');
           state.preparedImage=window.WEDDING_CONFIRMATION_IMAGE
-            .createImage(recipients.map(m=>m.name),seatCount)
+            .createImage(cardNames,seatCount)
             .catch(err=>{console.warn("Wedding image preparation",err?.message||err);return null;});
         }
         // No dress code screen if nobody in the group will attend.
