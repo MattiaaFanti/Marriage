@@ -14,7 +14,7 @@ The invitation email is sent only with Gmail via Google Apps Script. No paid ema
 - The card includes the full reception address: **Bahay Baluk Baluk Restaurant, Maatas Na Kahoy, Lipa City, Batangas**.
 - The email subject is **Save the date! - Your Wedding Confirmation**
 - The recipient sees the inline image in the email body, without a signature or extra text.
-- The group-wide Email admin column displays NO for opted-out groups, is blank for Pending, and shows the complete shared email address after sending.
+- The admin Email column now shows the individual guest's confirmation address. Pending delivery displays **Sending…**, successful delivery shows the address normally, and no confirmation leaves the cell blank.
 
 ## Source artwork
 
@@ -48,14 +48,15 @@ The `/admin` dashboard opens a hibernatable WebSocket through Cloudflare's SQLit
 
 Cloudflare deployment uses the `RSVP_LIVE` Durable Object binding and the `rsvp-live-sqlite-v1` SQLite migration already declared in `wrangler.toml`. No extra secrets are required. The selected configuration is available on Cloudflare Workers Free and Paid plans.
 
-## Updating manual RSVP statuses
+## Independent confirmation emails for household members
 
-- A manual status change to **any** guest clears the email **only on that guest's row**. The addresses of the other Attending guests remain unchanged.
-- The per-guest clear is stored in D1 (`rsvp_member_email_clears`), and is retained through manual `Not Attending → Pending (Reset) → Attending` changes. An old group address will not reappear automatically.
-- The first deployment automatically repairs any previously edited guest whose old email is still visible after an admin change.
-- The group preference is set to NO if everyone is manually marked Not Attending; an individual manually edited row nevertheless stays blank. Guests with no manual email clear still show NO where appropriate.
-- A **new RSVP submitted by the guest** clears the old email choice and per-person clear markers. The email becomes visible again only after sending and successful acceptance of a **new** confirmation.
-- Reset All clears both group email preferences and the per-guest clear markers.
+- Cloudflare creates `rsvp_member_email_choices` for confirmed addresses and `rsvp_member_email_requests` for messages currently being delivered. These are per-member, not per-group tables; no manual D1 command is needed.
+- When a group member changes from **Not Attending** to **Attending**, the website offers confirmation only for attendees without an existing sent email. Their names and IDs are checked by the Worker against the current RSVP states.
+- Example: person A has `first@example.com` and person B changes their mind. Person A keeps their original address. Person B receives their confirmation at `second@example.com`, without overwriting A.
+- The new address becomes visible in the dashboard as **Sending…** once Cloudflare accepts the image and recipient; after Gmail confirms it, the address is saved as **sent**.
+- A failed Gmail delivery clears only its provisional request, allowing another attempt. A subsequent manual or guest RSVP status change clears only that member's confirmation and queued request.
+- The one-time migration recovers surviving legacy group emails for guests who were already Attending **before** the legacy email was recorded. It deliberately avoids copying that email to someone who changed to Attending later. Previously overwritten emails cannot be reconstructed from the old group record.
+- **Reset All** clears the old group records, individual confirmed addresses and pending send records.
 
 ## Diagnose email timing
 
