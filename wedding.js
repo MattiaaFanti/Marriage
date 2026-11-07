@@ -9,6 +9,12 @@
   const cfg = window.WEDDING_CONFIG || {};
   const api = (cfg.apiBase || '').replace(/\/+$/,'');
   const demo = !api;
+  // Normalize displayed sponsor/family roles while the D1 migration is pending.
+  const guestRoleLabel = role => {
+    const original=String(role||'');
+    const label=original.trim().toLowerCase();
+    return label==='ninang'?'Nina':label==='ninong'?'Nino':label==='umpeng'?'Umpe':original;
+  };
   document.querySelectorAll('[data-wedding-date]').forEach(n => n.textContent = 'MONDAY · 07 DECEMBER 2026');
   document.querySelectorAll('[data-wedding-address]').forEach(n => n.textContent = cfg.address || 'Mataas Na Kahoy, Lipa, Batangas, Philippines');
   document.querySelectorAll('[data-map-link]').forEach(n => n.href = cfg.mapUrl);
@@ -145,7 +151,7 @@
         '<p>Select Attending or Not Attending for <strong>every person</strong> on your invitation.</p>'+
         '<div class="rsvp-group-members">'+state.members.map(m=>{
           const selected=state.answers[m.id]||'';
-          return '<div class="rsvp-member"><div class="rsvp-member-name">'+enc(m.name)+(m.role?'<small>'+enc(m.role)+'</small>':'')+'</div>'+
+          return '<div class="rsvp-member"><div class="rsvp-member-name">'+enc(m.name)+(m.role?'<small>'+enc(guestRoleLabel(m.role))+'</small>':'')+'</div>'+
             '<div class="rsvp-member-options"><button type="button" data-member="'+Number(m.id)+'" data-status="attending" aria-pressed="'+(selected==='attending')+'" class="rsvp-choice rsvp-yes'+(selected==='attending'?' selected':'')+'"><span class="rsvp-choice-label">Attending</span><span class="rsvp-choice-note">See you there!</span></button>'+
             '<button type="button" data-member="'+Number(m.id)+'" data-status="not_attending" aria-pressed="'+(selected==='not_attending')+'" class="rsvp-choice rsvp-no'+(selected==='not_attending'?' selected':'')+'"><span class="rsvp-choice-label">Not Attending</span><span class="rsvp-choice-note">I\'ll be there in spirit</span></button></div></div>';
         }).join('')+'</div>'+
@@ -289,7 +295,7 @@
             }
             btn.append(heading);
             if(person.role){
-              const role=document.createElement('small');role.textContent=person.role;btn.append(role);
+              const role=document.createElement('small');role.textContent=guestRoleLabel(person.role);btn.append(role);
             }
             btn.addEventListener('click',event=>{
               event.preventDefault();
