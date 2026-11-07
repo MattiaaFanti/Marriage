@@ -1,224 +1,208 @@
-/* Italian cover is rendered as ONE complete raster from the untouched
-   English slide. Both split mobile images use the SAME finished PNG, so
-   text, ornaments, portraits and the biblical quote stay aligned. */
+/* Italian cover: one complete full-resolution raster replaces BOTH split
+   mobile images. English lettering is never patched letter by letter:
+   the ENTIRE UPPER TEXT FIELD is repainted once with a continuous smooth
+   burgundy field; original gold bows and rays are restored unchanged.
+   Source slide1.webp and English wedding site remain unmodified. */
 (() => {
   'use strict';
   const WIDTH=2048, HEIGHT=3072;
-  const qs=s=>document.querySelector(s);
-  const stage=qs('#top .cover-stage');
-  const original=qs('#top .cover-art-upper');
+  const stage=document.querySelector('#top .cover-stage');
+  const original=stage?.querySelector('.cover-art-upper');
   if(!stage||!original)return;
-
-  function cssReady(){
-    document.documentElement.classList.remove('ita-cover-pending');
-  }
-  // Make the untouched image available if a device cannot render the canvas.
-  const fallback=setTimeout(cssReady,8500);
+  const reveal=()=>document.documentElement.classList.remove('ita-cover-pending');
+  let finished=false;
+  const fallback=setTimeout(()=>{if(!finished)reveal()},12000);
 
   async function build(){
     try{
-      if(!original.complete||!original.naturalWidth){
+      if(!original.complete||!original.naturalWidth)
         await new Promise((resolve,reject)=>{
           original.addEventListener('load',resolve,{once:true});
           original.addEventListener('error',reject,{once:true});
         });
-      }
       if(original.naturalWidth!==WIDTH||original.naturalHeight!==HEIGHT)
-        throw Error('Unexpected wedding cover dimensions');
-      // A temporarily unavailable web font must not prevent the artwork
-      // from being displayed; Canvas can use its local serif fallback.
-      await Promise.all([
-        document.fonts?.load('400 170px "Great Vibes"'),
-        document.fonts?.load('500 74px "Cormorant Garamond"')
-      ].filter(Boolean).map(p=>p.catch(()=>{})));
+        throw Error('Original cover has unexpected dimensions');
+      // Fonts are optional. Do not keep the user waiting on Google Fonts.
+      if(document.fonts?.load)await Promise.race([
+        Promise.all([
+          document.fonts.load('400 160px "Great Vibes"').catch(()=>{}),
+          document.fonts.load('500 65px "Cormorant Garamond"').catch(()=>{})
+        ]),
+        new Promise(resolve=>setTimeout(resolve,1700))
+      ]);
 
       const canvas=document.createElement('canvas');
       canvas.width=WIDTH;canvas.height=HEIGHT;
-      const ctx=canvas.getContext('2d',{willReadFrequently:true});
-      if(!ctx)throw Error('Canvas unavailable');
+      const ctx=canvas.getContext('2d',{alpha:false});
+      if(!ctx)throw Error('Canvas unsupported');
       ctx.drawImage(original,0,0,WIDTH,HEIGHT);
-      const source=ctx.getImageData(0,0,WIDTH,HEIGHT).data;
-      const sample=(x,y)=>{
-        const p=(Math.round(y)*WIDTH+Math.round(x))*4;
-        return [source[p],source[p+1],source[p+2]];
+
+      const sampler=document.createElement('canvas');
+      sampler.width=WIDTH;sampler.height=HEIGHT;
+      const sc=sampler.getContext('2d',{willReadFrequently:true});
+      sc.drawImage(original,0,0,WIDTH,HEIGHT);
+      const pixel=(x,y)=>{
+        const c=sc.getImageData(Math.round(x),Math.round(y),1,1).data;
+        return [c[0],c[1],c[2]];
       };
-      // The approved artwork contains a smooth burgundy field behind
-      // the lettering. Reconstruct that field from CLEAN regions only.
-      // Do not propagate individual nearby pixels: that caused puddles.
-      const bTop=sample(1024,12),bBottom=sample(1024,980);
-      const isBurgundy=c=>c[0]>32&&c[0]>c[1]*1.45&&
-        c[0]>c[2]*1.18&&c[1]<105&&c[2]<112;
-      // Build LOW-FREQUENCY color guides once. Never use isolated pixels
-      // from the original WebP, which contain JPEG/WebP noise or gold
-      // ornament edges and create visible stripes after reconstruction.
-      const guideLeft=new Float32Array(992*3);
-      const guideRight=new Float32Array(992*3);
-      function measureEdge(x,y,component){
-        let sum=0,count=0;
-        for(let dy=-20;dy<=20;dy+=4){
-          const yy=Math.max(3,Math.min(988,y+dy));
-          for(let dx=-8;dx<=8;dx+=8){
-            const c=sample(x+dx,yy);
-            if(!isBurgundy(c))continue;
-            sum+=c[component];count++;
-          }
+      const rgb=c=>'rgb('+c.map(n=>Math.round(n)).join(',')+')';
+      function edgeColor(y){
+        // Only the outermost margins of the artwork: never the original
+        // English glyphs, ribbons or decorative rays.
+        const points=[pixel(14,y),pixel(2033,y)];
+        return [0,1,2].map(k=>(points[0][k]+points[1][k])/2);
+      }
+
+      // Recreate ALL of the top, including the original title area, in one
+      // operation. The previous narrow inpainting masks are gone completely.
+      const upper=document.createElement('canvas');
+      upper.width=WIDTH;upper.height=1040;
+      const uc=upper.getContext('2d');
+      const topGradient=uc.createLinearGradient(0,0,0,1040);
+      for(const y of [0,130,320,540,780,960,1030])
+        topGradient.addColorStop(y/1040,rgb(edgeColor(y)));
+      uc.fillStyle=topGradient;
+      uc.fillRect(0,0,WIDTH,1040);
+      // Fade into the untouched background ONLY below all old English words.
+      uc.globalCompositeOperation='destination-in';
+      const fade=uc.createLinearGradient(0,960,0,1035);
+      fade.addColorStop(0,'rgba(0,0,0,1)');
+      fade.addColorStop(1,'rgba(0,0,0,0)');
+      uc.fillStyle=fade;uc.fillRect(0,0,WIDTH,1040);
+      uc.globalCompositeOperation='source-over';
+      ctx.drawImage(upper,0,0);
+
+      // Restore the four ribbon/bow regions from the EXACT original pixels.
+      // Smoothly feather just their empty burgundy edges, not the gold bows.
+      function restoreCorner(x,width,right){
+        const h=790;
+        const clip=document.createElement('canvas');
+        clip.width=width;clip.height=h;
+        const c=clip.getContext('2d');
+        c.drawImage(original,x,0,width,h,0,0,width,h);
+        c.globalCompositeOperation='destination-in';
+        const edge=c.createLinearGradient(0,0,width,0);
+        if(right){
+          edge.addColorStop(0,'rgba(0,0,0,0)');
+          edge.addColorStop(.19,'rgba(0,0,0,1)');
+          edge.addColorStop(1,'rgba(0,0,0,1)');
+        }else{
+          edge.addColorStop(0,'rgba(0,0,0,1)');
+          edge.addColorStop(.81,'rgba(0,0,0,1)');
+          edge.addColorStop(1,'rgba(0,0,0,0)');
         }
-        const t=y/988;
-        return count>=4?sum/count:bTop[component]*(1-t)+bBottom[component]*t;
+        c.fillStyle=edge;c.fillRect(0,0,width,h);
+        const bottom=c.createLinearGradient(0,655,0,h);
+        bottom.addColorStop(0,'rgba(0,0,0,1)');
+        bottom.addColorStop(1,'rgba(0,0,0,0)');
+        c.fillStyle=bottom;c.fillRect(0,0,width,h);
+        c.globalCompositeOperation='source-over';
+        ctx.drawImage(clip,x,0);
       }
-      for(let y=0;y<992;y++)for(let c=0;c<3;c++){
-        guideLeft[y*3+c]=measureEdge(405,y,c);
-        guideRight[y*3+c]=measureEdge(1650,y,c);
-      }
-      const background=(x,y)=>{
-        const t=Math.max(0,Math.min(1,x/(WIDTH-1)));
-        const row=Math.max(0,Math.min(991,Math.round(y)));
-        const v=Math.max(0,Math.min(1,y/980));
-        const centerWeight=Math.max(0,Math.min(1,4*t*(1-t)));
-        return [0,1,2].map(c=>{
-          const mid=bTop[c]*(1-v)+bBottom[c]*v;
-          const edges=guideLeft[row*3+c]*(1-t)+guideRight[row*3+c]*t;
-          return Math.round(edges*(1-centerWeight*.70)+mid*centerWeight*.70);
-        });
-      };
-      function originalGoldRay(x,y){
-        if(y<155||y>309)return false;
-        if(!((x>=525&&x<=690)||(x>=1358&&x<=1540)))return false;
-        const p=(y*WIDTH+x)*4;
-        const r=source[p],g=source[p+1],b=source[p+2];
-        return r>128&&g>75&&b<g*.79&&g>b*1.4&&r>g*1.15;
-      }
-      function restoreGoldRays(x0,y0,w,h,region){
-        // Expand the gold-ray mask by 2px so anti-aliased gold edges
-        // also survive. Never restore light cream lettering.
-        const mask=new Uint8Array(w*h);
-        for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++)
-          if(originalGoldRay(x0+xx,y0+yy))mask[yy*w+xx]=1;
-        let m=mask;
+      restoreCorner(0,585,false);
+      restoreCorner(1463,585,true);
+
+      // Reuse the exact small decorative gold rays next to the heading,
+      // never copying any of the original cream English lettering.
+      function restoreGoldRay(x0,y0,w,h){
+        const region=sc.getImageData(x0,y0,w,h);
+        const a=region.data,mask=new Uint8Array(w*h);
+        for(let i=0;i<mask.length;i++){
+          const p=i*4,r=a[p],g=a[p+1],b=a[p+2];
+          if(r>126&&g>81&&g>b*1.55&&r>g*1.12&&b<103)mask[i]=1;
+        }
         for(let pass=0;pass<2;pass++){
-          const next=m.slice();
-          for(let yy=1;yy<h-1;yy++)for(let xx=1;xx<w-1;xx++){
-            const i=yy*w+xx;
-            if(!m[i])continue;
+          const next=mask.slice();
+          for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+            if(!mask[y*w+x])continue;
             for(let dy=-1;dy<=1;dy++)
-              for(let dx=-1;dx<=1;dx++)next[i+dy*w+dx]=1;
+              for(let dx=-1;dx<=1;dx++)next[(y+dy)*w+x+dx]=1;
           }
-          m=next;
+          mask.set(next);
         }
-        for(let i=0;i<m.length;i++)if(m[i]){
-          const k=i*4;
-          for(let c=0;c<3;c++)region.data[k+c]=source[((y0+Math.floor(i/w))*WIDTH+(x0+i%w))*4+c];
-        }
+        for(let i=0;i<mask.length;i++)a[i*4+3]=mask[i]?255:0;
+        const ray=document.createElement('canvas');ray.width=w;ray.height=h;
+        ray.getContext('2d').putImageData(region,0,0);
+        ctx.drawImage(ray,x0,y0);
       }
-      function clearLettering(x0,y0,w,h,feather=24,keepRays=false){
-        const originalPixels=ctx.getImageData(x0,y0,w,h);
-        const output=ctx.createImageData(w,h);
-        for(let yy=0;yy<h;yy++){
-          const absY=y0+yy,fy=Math.min(1,(yy+1)/feather,(h-yy)/feather);
-          for(let xx=0;xx<w;xx++){
-            const absX=x0+xx,fx=Math.min(1,(xx+1)/feather,(w-xx)/feather);
-            const alpha=Math.max(0,Math.min(1,fx,fy));
-            const bg=background(absX,absY),p=(yy*w+xx)*4;
-            for(let c=0;c<3;c++){
-              const color=originalPixels.data[p+c]*(1-alpha)+bg[c]*alpha;
-              output.data[p+c]=Math.round(color);
-            }
-            output.data[p+3]=255;
+      restoreGoldRay(540,145,145,165);
+      restoreGoldRay(1365,145,145,165);
+
+      // Preserve approved absence of M & K and OUR E-INVITE. Fill only their
+      // original central lettering rectangles, far from faces and dresses.
+      function cleanCenter(x0,y0,w,h,top,bottom){
+        const img=ctx.getImageData(x0,y0,w,h);
+        const above=sc.getImageData(x0,top,w,1).data;
+        const below=sc.getImageData(x0,bottom,w,1).data;
+        const a=img.data;
+        for(let y=0;y<h;y++){
+          const t=y/(h-1),fy=Math.min(1,(y+1)/16,(h-y)/16);
+          for(let x=0;x<w;x++){
+            const fx=Math.min(1,(x+1)/18,(w-x)/18),opacity=Math.max(0,Math.min(fx,fy));
+            const p=(y*w+x)*4,q=x*4;
+            for(let k=0;k<3;k++)
+              a[p+k]=Math.round(a[p+k]*(1-opacity)+
+                (above[q+k]*(1-t)+below[q+k]*t)*opacity);
           }
         }
-        if(keepRays)restoreGoldRays(x0,y0,w,h,output);
-        ctx.putImageData(output,x0,y0);
-      }
-      // Entire original English text footprints, with margins well away
-      // from the gold bows and both children's frames. The original
-      // English glyphs are completely covered before Italian is drawn.
-      clearLettering(555,25,946,169,22,true);    // THESE KIDS ARE
-      clearLettering(415,180,1230,620,33,true);   // getting married
-      clearLettering(565,791,931,196,27,false);   // can't wait...
-      
-      // The original approved cover removes M&K / OUR E-INVITE in the
-      // burgundy gap between the children's images. Keep those narrow crops.
-      function cleanCenter(x0,y0,w,h,above,below){
-        const out=ctx.getImageData(x0,y0,w,h);
-        for(let yy=0;yy<h;yy++){
-          const f=(yy+1)/h;
-          const featherY=Math.min(1,(yy+1)/15,(h-yy)/15);
-          for(let xx=0;xx<w;xx++){
-            const xxAbs=x0+xx;
-            const i=(yy*w+xx)*4;
-            const c0=sample(xxAbs,above),c1=sample(xxAbs,below);
-            const featherX=Math.min(1,(xx+1)/17,(w-xx)/17);
-            const a=Math.max(0,Math.min(featherX,featherY));
-            for(let c=0;c<3;c++){
-              const clean=c0[c]*(1-f)+c1[c]*f;
-              out.data[i+c]=Math.round(out.data[i+c]*(1-a)+clean*a);
-            }
-            out.data[i+3]=255;
-          }
-        }
-        ctx.putImageData(out,x0,y0);
+        ctx.putImageData(img,x0,y0);
       }
       cleanCenter(830,2040,377,170,2015,2240);
       cleanCenter(885,2290,273,320,2250,2630);
 
-      // Original illustration's gold scroll is ABOVE y=2710. The English
-      // Song of Solomon lettering lies exclusively BELOW this position.
-      // Work on the finished full-size PNG instead of an overlay on the
-      // unshifted mobile first half (the cause of the cut across the dress).
-      const quoteY=2708;
-      const bottom=ctx.getImageData(0,quoteY,WIDTH,HEIGHT-quoteY);
-      for(let yy=0;yy<HEIGHT-quoteY;yy++){
-        const y=yy+quoteY;
-        const a=sample(24,y),b=sample(2022,y);
-        const vertical=Math.max(0,Math.min(1,yy/56));
-        for(let x=0;x<WIDTH;x++){
-          const t=x/(WIDTH-1),p=(yy*WIDTH+x)*4;
-          for(let c=0;c<3;c++){
-            const clean=a[c]*(1-t)+b[c]*t;
-            bottom.data[p+c]=Math.round(bottom.data[p+c]*(1-vertical)+clean*vertical);
-          }
-          bottom.data[p+3]=255;
-        }
-      }
-      ctx.putImageData(bottom,0,quoteY);
+      // The English Song of Solomon line is in the clear burgundy at the
+      // extreme bottom. Cover it fully, preserving all the portraits above.
+      const scripture=document.createElement('canvas');
+      scripture.width=WIDTH;scripture.height=350;
+      const bc=scripture.getContext('2d');
+      const bg=bc.createLinearGradient(0,0,0,350);
+      for(const [y,position] of [[2722,0],[2800,78],[2880,158],[2970,248],[3070,348]])
+        bg.addColorStop(position/350,rgb(edgeColor(y)));
+      bc.fillStyle=bg;bc.fillRect(0,0,WIDTH,350);
+      bc.globalCompositeOperation='destination-in';
+      const edge=bc.createLinearGradient(0,0,0,28);
+      edge.addColorStop(0,'rgba(0,0,0,0)');
+      edge.addColorStop(1,'rgba(0,0,0,1)');
+      bc.fillStyle=edge;bc.fillRect(0,0,WIDTH,350);
+      bc.globalCompositeOperation='source-over';
+      ctx.drawImage(scripture,0,2722);
 
-      function text(value,y,size,{font='serif',italic=false,weight='500',max=1600,tracking=0}={}){
+      function centered(value,y,size,{script=false,italic=false,weight='500',max=1700,spacing=0}={}){
         ctx.save();
-        const family=font==='script'?'"Great Vibes", cursive':'"Cormorant Garamond", Georgia, serif';
-        ctx.fillStyle='#fff5eb';
+        ctx.fillStyle='#fff5e9';
         ctx.textAlign='center';ctx.textBaseline='middle';
-        function setFont(n){ctx.font=(italic?'italic ':'')+weight+' '+n+'px '+family;}
+        const family=script?'"Great Vibes", cursive':'"Cormorant Garamond", Georgia, serif';
+        const setFont=n=>ctx.font=(italic?'italic ':'')+weight+' '+n+'px '+family;
         setFont(size);
         while(size>24&&ctx.measureText(value).width>max)setFont(--size);
-        if(tracking&&'letterSpacing' in ctx)ctx.letterSpacing=tracking+'px';
+        if(spacing&&'letterSpacing' in ctx)ctx.letterSpacing=spacing+'px';
         ctx.fillText(value,1024,y);
         ctx.restore();
       }
-      text('QUESTI DUE BAMBINI',127,71,{weight:'600',max:950,tracking:5});
-      text('si stanno',430,265,{font:'script',max:1160});
-      text('sposando',680,260,{font:'script',max:1230});
-      text('e non vedono l’ora',856,69,{max:870});
-      text('di festeggiare con voi!',924,69,{max:1110});
-      text('«Ho trovato l’amore dell’anima mia»',2834,87,{italic:true,max:1680});
-      text('CANTICO DEI CANTICI 3:4',2955,47,{weight:'600',max:1080,tracking:6});
+      centered('QUESTI DUE BAMBINI',114,72,{weight:'600',max:935,spacing:5});
+      centered('si stanno',422,245,{script:true,max:1210});
+      centered('sposando',660,247,{script:true,max:1260});
+      centered('e non vedono l’ora',845,65,{max:880});
+      centered('di festeggiare con voi!',924,62,{max:1120});
+      centered('«Ho trovato l’amore dell’anima mia»',2818,86,{italic:true,max:1670});
+      centered('CANTICO DEI CANTICI 3:4',2945,49,{weight:'600',max:1160,spacing:5});
 
-      // Lossless PNG: don't recompress or change the untouched source photo.
       const png=await new Promise((resolve,reject)=>
-        canvas.toBlob(b=>b?resolve(b):reject(Error('PNG conversion failed')),'image/png'));
-      const url=URL.createObjectURL(png);
+        canvas.toBlob(blob=>blob?resolve(blob):reject(Error('PNG encoding failed')),'image/png'));
+      const pngUrl=URL.createObjectURL(png);
+      // Both images must load BEFORE the pending mask disappears; otherwise
+      // the lower half flashes the English base cover on mobile.
       const covers=[...stage.querySelectorAll('.cover-art')];
       await Promise.all(covers.map(img=>new Promise((resolve,reject)=>{
         img.addEventListener('load',resolve,{once:true});
         img.addEventListener('error',reject,{once:true});
-        img.src=url;
+        img.src=pngUrl;
       })));
-      clearTimeout(fallback);
-      cssReady();
-      window.addEventListener('pagehide',()=>URL.revokeObjectURL(url),{once:true});
-    }catch(err){
-      console.warn('[Italian wedding cover] Rendering failed, showing original artwork:',err?.message||err);
-      clearTimeout(fallback);
-      cssReady();
+      finished=true;clearTimeout(fallback);reveal();
+      window.addEventListener('pagehide',()=>URL.revokeObjectURL(pngUrl),{once:true});
+    }catch(error){
+      console.warn('[Italian wedding cover] Could not prepare artwork',error);
+      finished=true;clearTimeout(fallback);reveal();
     }
   }
   void build();
