@@ -143,6 +143,60 @@ async function markSkipped(env,members){
   ).bind(m.id,at)));
   await notifyRSVPUpdate(env,"guests");
 }
+// The address is accepted into D1 before replying to the browser. The
+// Google Apps Script request stays in the existing ctx.waitUntil() flow.
+async function queueIndividualEmails(env,targets,email,requestHash){
+  await env.DB.prepare(
+    "DELETE FROM rsvp_member_email_requests WHERE queued_at<?"
+  ).bind(now()-90).run();
+  const at=now();
+  const results=await env.DB.batch(targets.map(m=>env.DB.prepare(
+    "INSERT OR IGNORE INTO rsvp_member_email_requests("+
+    "member_id,email,request_hash,status_updated_at,queued_at) "+
+    "SELECT id,?,?,COALESCE(updated_at,''),? FROM rsvp_members "+
+    "WHERE id=? AND group_id=? AND rsvp_status='attending' "+
+    "AND COALESCE(updated_at,'')=COALESCE(?,'') "+
+    "AND NOT EXISTS (SELECT 1 FROM rsvp_member_email_choices "+
+    "WHERE member_id=? AND choice='EMAIL')"
+  ).bind(email,requestHash,at,m.id,m.group_id,m.updated_at,m.id)));
+  if(results.some(r=>Number(r.meta?.changes)!==1)){
+    await clearIndividualQueue(env,targets,requestHash);
+    throw Error("A guest changed their response while the email was being prepared.");
+  }
+  await notifyRSVPUpdate(env,"guests");
+}
+async function clearIndividualQueue(env,targets,requestHash){
+  if(!targets.length)return;
+  await env.DB.batch(targets.map(m=>env.DB.prepare(
+    "DELETE FROM rsvp_member_email_requests WHERE member_id=? AND request_hash=?"
+  ).bind(m.id,requestHash)));
+  await notifyRSVPUpdate(env,"guests");
+}
+async function confirmIndividualEmails(env,targets,email,requestHash){
+  const at=new Date().toISOString();
+  const results=await env.DB.batch([
+    ...targets.map(m=>env.DB.prepare(
+      "INSERT INTO rsvp_member_email_choices(member_id,choice,email,updated_at) "+
+      "SELECT m.id,'EMAIL',?,? FROM rsvp_members m "+
+      "JOIN rsvp_member_email_requests q ON q.member_id=m.id "+
+      "WHERE m.id=? AND m.group_id=? AND m.rsvp_status='attending' "+
+      "AND COALESCE(m.updated_at,'')=COALESCE(?,'') "+
+      "AND q.status_updated_at=COALESCE(m.updated_at,'') "+
+      "AND q.request_hash=? "+
+      "ON CONFLICT(member_id) DO UPDATE SET choice='EMAIL',"+
+      "email=excluded.email,updated_at=excluded.updated_at "+
+      "WHERE rsvp_member_email_choices.choice!='EMAIL'"
+    ).bind(email,at,m.id,m.group_id,m.updated_at,requestHash)),
+    ...targets.map(m=>env.DB.prepare(
+      "DELETE FROM rsvp_member_email_requests WHERE member_id=? AND request_hash=?"
+    ).bind(m.id,requestHash))
+  ]);
+  const saved=results.slice(0,targets.length).filter(r=>Number(r.meta?.changes)===1).length;
+  await notifyRSVPUpdate(env,"guests");
+  if(saved<targets.length)console.warn("[Wedding RSVP] An RSVP changed before delivery",{
+    group_id:targets[0]?.group_id,expected:targets.length,saved
+  });
+}
 async function skipConfirmationEmail(req,env){
   const body=await parseBody(req),groupId=await validateToken(body?.household_token,env);
   if(!groupId)return error("Your invitation session has expired. Search your name again.",403);
