@@ -104,7 +104,7 @@
   modal.innerHTML='<section class="rsvp-dialog" role="dialog" aria-modal="true" aria-labelledby="rsvpHeading"><button class="rsvp-x" type="button" aria-label="Close">×</button><div class="rsvp-content"></div></section>';
   document.body.appendChild(modal);
   const content=modal.querySelector('.rsvp-content');
-  const state={step:'find',name:'',selectedId:null,token:'',members:[],answers:{},error:'',busy:false,confirmationEmail:'',emailChoice:'',emailTargets:[],preparedEmailKey:'',preparedEmailPromise:null,sendingPhase:''};
+  const state={step:'find',name:'',selectedId:null,token:'',members:[],answers:{},error:'',busy:false,confirmationEmail:'',emailChoice:'',sendingPhase:''};
   const enc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const nameKey=s=>String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/\s+/g,' ');
   const validName=s=>s.length>=3&&s.length<=100&&/^[a-z]+(?:[ '-][a-z]+)*$/.test(s);
@@ -131,7 +131,6 @@
 
   function countAnswers(){return state.members.filter(m=>['attending','not_attending'].includes(state.answers[m.id])).length;}
   function attendingMembers(){return state.members.filter(m=>state.answers[m.id]==='attending');}
-  function emailRecipients(){return attendingMembers().filter(m=>state.emailTargets.includes(Number(m.id)));}
   function validEmail(s){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s||'').trim())&&String(s).trim().length<=254;}
   function render(){
     let html='';
@@ -183,7 +182,7 @@
     if(state.step==='done'){
       html='<p class="rsvp-kicker">MATTIA & KIRSTEN</p><h2 id="rsvpHeading">Thank you!</h2>'+
         '<p>All responses for your invitation have been recorded.</p>';
-      if(emailRecipients().length){
+      if(attendingMembers().length){
         html+='<form id="rsvpEmailForm" class="rsvp-email-form" novalidate>'+
           '<p class="rsvp-email-question">Would you like to receive your invitation confirmation by e-mail?</p>'+
           '<label for="rsvpConfirmEmail">E-mail address</label>'+
@@ -370,13 +369,13 @@
   async function action(kind,options={}){
     if(kind==='close'){
       if(state.busy)return;
-      if(state.step==='done'&&emailRecipients().length&&state.emailChoice!=='EMAIL'){
+      if(state.step==='done'&&attendingMembers().length&&state.emailChoice!=='EMAIL'){
         await action('skipEmail');
       }else close();
       return;
     }
     if(kind==='skipEmail'&&!state.busy){
-      if(!emailRecipients().length){close();return;}
+      if(!attendingMembers().length){close();return;}
       if(!api||!state.token){state.error='Confirmation service unavailable.';render();return;}
       const generation=lookupGeneration;
       state.busy=true;state.error='';render();
@@ -398,7 +397,7 @@
       return;
     }
     if(kind==='sendEmail'&&!state.busy){
-      if(!emailRecipients().length){state.error='No guests currently need an email confirmation.';render();return;}
+      if(!attendingMembers().length){state.error='No attending guests were selected.';render();return;}
       const email=String(content.querySelector('#rsvpConfirmEmail')?.value||state.confirmationEmail||'').trim();
       state.confirmationEmail=email;
       if(!validEmail(email)){
@@ -409,27 +408,19 @@
       }
       const generation=lookupGeneration;
       const token=state.token;
-      const recipients=emailRecipients();
-      const names=recipients.map(m=>m.name);
-      const memberIds=recipients.map(m=>Number(m.id));
-      const imageKey=recipients.map(m=>m.id+':'+m.name).join('|');
+      const names=attendingMembers().map(m=>m.name);
       // Initiate image generation and the Cloudflare request immediately.
       // They are independent of the popup's two-second display timer.
       state.busy=true;state.error='';
       state.sendingPhase='Preparing your confirmation email…';render();
       let submitted=null,submitError=null;
       const submission=(async()=>{
-        // Pre-render during the dress-code screen so uploading the PNG
-        // usually begins immediately when Send is clicked.
-        const readyImage=state.preparedEmailKey===imageKey&&state.preparedEmailPromise?
-          await state.preparedEmailPromise:null;
-        const image=readyImage||await window.WEDDING_CONFIRMATION_IMAGE.createImage(names);
+        const image=await window.WEDDING_CONFIRMATION_IMAGE.createImage(names);
         const response=await fetch(api+'/api/household/send-confirmation-email',{
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
             household_token:token,email,
-            image_data_url:image,attending_names:names,
-            attending_member_ids:memberIds
+            image_data_url:image,attending_names:names
           }),cache:'no-store'
         });
         const data=await response.json().catch(()=>({}));
@@ -541,19 +532,6 @@
         const data=await resp.json().catch(()=>({}));
         if(!resp.ok)throw Error(data.error||'Could not save your responses.');
         // No dress code screen if nobody in the group will attend.
-        state.emailTargets=Array.isArray(data.email_targets)?
-          data.email_targets.map(Number).filter(Number.isSafeInteger):[];
-        state.preparedEmailKey='';
-        state.preparedEmailPromise=null;
-        const recipients=emailRecipients();
-        if(recipients.length&&window.WEDDING_CONFIRMATION_IMAGE){
-          state.preparedEmailKey=recipients.map(m=>m.id+':'+m.name).join('|');
-          state.preparedEmailPromise=window.WEDDING_CONFIRMATION_IMAGE
-            .createImage(recipients.map(m=>m.name)).catch(err=>{
-              console.warn('Wedding confirmation pre-render failed:',err?.message||err);
-              return null;
-            });
-        }
         const hasAttendees=state.members.some(m=>state.answers[m.id]==='attending');
         state.step=hasAttendees?'dress':'regret';state.error='';
       }catch(e){state.error=e.message||'Could not save. Please retry.';}
@@ -569,7 +547,7 @@
     document.body.classList.remove('rsvp-open');
     state.step=preselected?'loading':'find';
     state.name=name;state.selectedId=id;state.token='';state.members=[];
-    state.answers={};state.error='';state.busy=false;state.confirmationEmail='';state.emailChoice='';state.emailTargets=[];state.preparedEmailKey='';state.preparedEmailPromise=null;state.sendingPhase='';
+    state.answers={};state.error='';state.busy=false;state.confirmationEmail='';state.emailChoice='';state.sendingPhase='';
     if(preselected){
       // Never render a search form during a selected-guest lookup.
       // Reveal only when group choices are ready (or on a real error).

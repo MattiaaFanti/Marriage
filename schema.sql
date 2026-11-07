@@ -101,24 +101,3 @@ CREATE TABLE IF NOT EXISTS rsvp_member_email_clears (
   member_id INTEGER PRIMARY KEY,
   cleared_at TEXT NOT NULL
 );
-
--- A confirmation email belongs to an individual RSVP guest. Two members
--- of the same invitation may supply different recipient addresses without
--- overwriting one another. The Worker migrates old group emails only once.
-CREATE TABLE IF NOT EXISTS rsvp_member_email_choices (
-  member_id INTEGER PRIMARY KEY REFERENCES rsvp_members(id) ON DELETE CASCADE,
-  choice TEXT NOT NULL CHECK(choice IN ('NO','EMAIL')),
-  email TEXT NOT NULL DEFAULT '',
-  updated_at TEXT NOT NULL
-);
-
--- Addresses accepted for asynchronous delivery. The admin displays these
--- while the Worker waits for Gmail, before a confirmed EMAIL choice exists.
--- The Worker creates this table automatically on existing D1 databases.
-CREATE TABLE IF NOT EXISTS rsvp_member_email_pending (
-  member_id INTEGER PRIMARY KEY REFERENCES rsvp_members(id) ON DELETE CASCADE,
-  email TEXT NOT NULL,
-  request_hash TEXT NOT NULL,
-  status_updated_at TEXT NOT NULL DEFAULT '',
-  queued_at INTEGER NOT NULL
-);
