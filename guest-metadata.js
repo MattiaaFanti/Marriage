@@ -59,6 +59,41 @@ async function ensureAdanFullNameMigration(env){
   await env.DB.batch(statements);
 }
 
+const ricoFullNameVersion="wedding-rico-del-rosario-2026-11-07-v1";
+
+/* Rename the single guest displayed as Rico (role Tito), not Rico Vergara.
+   Preserve member ID, household, RSVP choice, email, timestamps and history. */
+async function ensureRicoFullNameMigration(env){
+  const done=await env.DB.prepare(
+    "SELECT name FROM rsvp_data_migrations WHERE name=?"
+  ).bind(ricoFullNameVersion).first();
+  if(done)return;
+  const rows=(await env.DB.prepare(
+    "SELECT id,display_name FROM rsvp_members "+
+    "WHERE display_name IN ('Rico','Rico Del Rosario') AND role='Tito'"
+  ).all()).results||[];
+  if(rows.length!==1)
+    throw new Error("Cannot safely rename Rico; expected exactly one Tito guest.");
+  const id=rows[0].id,at=new Date().toISOString();
+  const statements=[
+    env.DB.prepare(
+      "UPDATE rsvp_members SET display_name='Rico Del Rosario' "+
+      "WHERE id=? AND display_name='Rico' AND role='Tito'"
+    ).bind(id)
+  ];
+  for(const alias of [
+    "rico del rosario","del rosario","rosario","rico","tito rico"
+  ]){
+    statements.push(env.DB.prepare(
+      "INSERT OR IGNORE INTO rsvp_aliases(alias,member_id) VALUES(?,?)"
+    ).bind(alias,id));
+  }
+  statements.push(env.DB.prepare(
+    "INSERT OR IGNORE INTO rsvp_data_migrations(name,applied_at) VALUES(?,?)"
+  ).bind(ricoFullNameVersion,at));
+  await env.DB.batch(statements);
+}
+
 /* Rename existing D1 role values without touching guest names, groups,
    attendance, timestamps, aliases or RSVP event history. */
 async function ensureRoleLabelMigration(env){
@@ -150,7 +185,7 @@ export async function ensureGuestMetadata(env){
     const previous=await env.DB.prepare(
       "SELECT name FROM rsvp_data_migrations WHERE name=?"
     ).bind(version).first();
-    if(previous){await ensureInitialHouseholdSplit(env);await ensureRoleLabelMigration(env);await ensureFullGodparentLabels(env);await ensureAdanFullNameMigration(env);ready=true;return;}
+    if(previous){await ensureInitialHouseholdSplit(env);await ensureRoleLabelMigration(env);await ensureFullGodparentLabels(env);await ensureAdanFullNameMigration(env);await ensureRicoFullNameMigration(env);ready=true;return;}
     const statements=[];
     for(const [oldName,newName,role] of renames){
       statements.push(env.DB.prepare(
@@ -205,6 +240,7 @@ export async function ensureGuestMetadata(env){
     await ensureRoleLabelMigration(env);
     await ensureFullGodparentLabels(env);
     await ensureAdanFullNameMigration(env);
+    await ensureRicoFullNameMigration(env);
     ready=true;
   })().finally(()=>{running=null});
   return running;
