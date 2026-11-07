@@ -194,9 +194,12 @@
         const r=sc.getImageData(2015,py,1,1).data;
         for(let x=0;x<width;x++){
           const t=x/(width-1),k=(yy*width+x)*4;
+          const blend=Math.min(1,Math.max(0,yy/44));
+          // Feather the top edge into the untouched original photograph.
+          // The English scripture starts below this transition.
           for(let c=0;c<3;c++)
             patch.data[k+c]=Math.round(l[c]*(1-t)+r[c]*t);
-          patch.data[k+3]=255;
+          patch.data[k+3]=Math.round(255*blend);
         }
       }
       ctx.putImageData(patch,0,y0);
