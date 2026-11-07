@@ -423,45 +423,62 @@ async function sendConfirmationEmail(req,env,ctx){
 }
 
 async function submit(req,env){
-  const body=await parseBody(req);
-  const groupId=await validateToken(body?.household_token,env);
+  const body=await parseBody(req),groupId=await validateToken(body?.household_token,env);
   if(!groupId)return error("This invitation session has expired. Search your name again.",403);
   const members=await membersOf(groupId,env);
   if(!members.length)return error("Invitation not found.",404);
-  if(!Array.isArray(body?.answers)||body.answers.length!==members.length)return error("You must answer for every person in your group.");
+  if(!Array.isArray(body?.answers)||body.answers.length!==members.length)
+    return error("You must answer for every person in your group.");
   const answers=new Map();
   for(const a of body.answers){
-    if(!a||!Number.isInteger(a.id)||answers.has(a.id)||!["attending","not_attending"].includes(a.status))
-      return error("Select Attend or Not attend for every person.");
+    if(!a||!Number.isInteger(a.id)||answers.has(a.id)||
+      !["attending","not_attending"].includes(a.status))
+      return error("Select Attending or Not Attending for every person.");
     answers.set(a.id,a.status);
   }
-  if(members.some(m=>!answers.has(Number(m.id))))return error("You must answer for every person in your group.");
-  await ensureEmailChoices(env);
-  await ensureMemberEmailClears(env);
+  if(members.some(m=>!answers.has(Number(m.id))))
+    return error("You must answer for every person in your group.");
+  await ensureMemberEmailChoices(env);
   const at=new Date().toISOString(),statements=[];
-  // A fresh guest-submitted RSVP supersedes any manual per-member email clear.
-  // That does NOT restore an old email: the group choice is deleted below.
-  statements.push(env.DB.prepare(
-    "DELETE FROM rsvp_member_email_clears WHERE member_id IN ("+
-    "SELECT id FROM rsvp_members WHERE group_id=?)"
-  ).bind(groupId));
-  // A new RSVP submission clears the previous email decision for the whole
-  // invitation. If nobody attends, the mail choice is automatically NO.
-  const anyAttending=[...answers.values()].some(status=>status==='attending');
-  statements.push(env.DB.prepare("DELETE FROM rsvp_confirmation_choices WHERE group_id=?").bind(groupId));
-  if(!anyAttending){
-    statements.push(env.DB.prepare(
-      "INSERT INTO rsvp_confirmation_choices(group_id,choice,email,updated_at) VALUES(?,'NO','',?)"
-    ).bind(groupId,at));
-  }
+  const anyAttending=[...answers.values()].includes("attending");
   for(const m of members){
     const status=answers.get(Number(m.id));
-    statements.push(env.DB.prepare("UPDATE rsvp_members SET rsvp_status=?,updated_at=? WHERE id=? AND group_id=?").bind(status,at,m.id,groupId));
-    statements.push(env.DB.prepare("INSERT INTO rsvp_member_events(member_id,previous_status,status,source,received_at) VALUES(?,?,?,'guest',?)").bind(m.id,m.rsvp_status,status,at));
+    if(status!==m.rsvp_status){
+      // Someone changing their own answer invalidates only their own
+      // previous delivery/queued address; all groupmates are untouched.
+      statements.push(env.DB.prepare(
+        "DELETE FROM rsvp_member_email_choices WHERE member_id=?"
+      ).bind(m.id));
+      statements.push(env.DB.prepare(
+        "DELETE FROM rsvp_member_email_requests WHERE member_id=?"
+      ).bind(m.id));
+      statements.push(env.DB.prepare(
+        "INSERT INTO rsvp_member_email_clears(member_id,cleared_at) VALUES(?,?) "+
+        "ON CONFLICT(member_id) DO UPDATE SET cleared_at=excluded.cleared_at"
+      ).bind(m.id,at));
+      statements.push(env.DB.prepare(
+        "UPDATE rsvp_members SET rsvp_status=?,updated_at=? WHERE id=? AND group_id=?"
+      ).bind(status,at,m.id,groupId));
+    }
+    statements.push(env.DB.prepare(
+      "INSERT INTO rsvp_member_events(member_id,previous_status,status,source,received_at) "+
+      "VALUES(?,?,?,'guest',?)"
+    ).bind(m.id,m.rsvp_status,status,at));
+    if(!anyAttending){
+      statements.push(env.DB.prepare(
+        "INSERT INTO rsvp_member_email_choices(member_id,choice,email,updated_at) "+
+        "VALUES(?,'NO','',?) ON CONFLICT(member_id) DO UPDATE SET "+
+        "choice='NO',email='',updated_at=excluded.updated_at"
+      ).bind(m.id,at));
+    }
   }
   await env.DB.batch(statements);
+  const current=await memberEmailRecords(env,groupId);
   await notifyRSVPUpdate(env,"all");
-  return json({ok:true,updated:members.length});
+  return json({
+    ok:true,updated:members.length,
+    email_targets:unsentAttendees(current).map(m=>Number(m.id))
+  });
 }
 async function overview(env){
   await ensureGuestMetadata(env);
