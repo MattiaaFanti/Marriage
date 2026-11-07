@@ -87,11 +87,11 @@
     }
     ctx.putImageData(block,0,split);
   }
-  function guestBlock(ctx,names,split){
-    const middle=W/2,n=Math.min(names.length,7);
+  function guestBlock(ctx,names,split,seatCount=names.length){
+    const middle=W/2,n=Math.min(seatCount,7);
     const step=39,first=middle-(n*30+(n-1)*9)/2;
     for(let i=0;i<n;i++)chair(ctx,first+i*step,split+17,30);
-    const heading=names.length+' '+(names.length===1?'seat reserved for you':'seats reserved for you');
+    const heading=seatCount+' '+(seatCount===1?'seat reserved for you':'seats reserved for you');
     let headingSize=40;while(headingSize>22&&width(ctx,heading,headingSize,{weight:'600'})>770)headingSize--;
     write(ctx,heading,middle,split+68,headingSize,{color:'#f6d890',weight:'600'});
     const combined=names.map(n=>n.trim()).join('  ·  ');
@@ -175,10 +175,12 @@
     value('6:00 PM onwards',1045,24);
     value('Semi-formal · Shades of Red to Burgundy',1083,22);
   }
-  async function createImage(names){
+  async function createImage(names,seatCount=names.length){
     if(!Array.isArray(names)||!names.length||names.length>20||
        names.some(n=>typeof n!=='string'||!n.trim()))
       throw Error('No attending guests are available for the confirmation.');
+    if(!Number.isSafeInteger(seatCount)||seatCount<names.length||seatCount>20)
+      throw Error('Invalid seat count for the wedding confirmation.');
     if(document.fonts?.load){
       await document.fonts.load('32px "Cormorant Garamond"').catch(()=>{});
     }
@@ -197,7 +199,7 @@
     ctx.drawImage(source,0,0,W,split,0,0,W,split);
     ctx.drawImage(source,0,split,W,H-split,0,split+gap,W,H-split);
     extendBlankBackground(ctx,source,split,gap);
-    guestBlock(ctx,names,split);
+    guestBlock(ctx,names,split,seatCount);
     replaceReceptionAddress(ctx,source,gap);
     // PNG preserves the full pixel detail of the source without a second
     // lossy encode. Gmail embeds these bytes inline.
