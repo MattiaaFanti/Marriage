@@ -332,7 +332,7 @@ async function sendConfirmationEmail(req,env,ctx){
   if(scriptURL.protocol!=='https:'||scriptURL.hostname!=='script.google.com'||
      !/^\/macros\/s\/[^/]+\/exec$/.test(scriptURL.pathname))
     return error('Invalid Gmail mailer URL.',503);
-  if(!await throttle(req,env,"confirmation-mail",5))
+  if(!await throttle(req,env,"confirmation-mail",30))
     return error("Too many confirmation requests. Please try again later.",429);
   // Only store a one-way hash of the recipient; never persist the address.
   await env.DB.prepare(
