@@ -107,129 +107,185 @@
       y+=32;
     }
   }
-  // Only the lettered regions are painted. Photos, gold frame, ribbon
-  // details and the original 906px-wide source image are never rescaled.
-  function overlayBurgundy(ctx,x,y,w,h,sampleX=450,sampleY=255){
-    // Inpaint only bright cream typography. Reuse nearby original source
-    // burgundy instead of painting a flat rectangle that would dent the
-    // background's gradient or its JPEG texture.
-    const img=ctx.getImageData(x,y,w,h),data=img.data,n=w*h;
-    const mask=new Uint8Array(n);
-    for(let i=0;i<n;i++){
-      const p=i*4,r=data[p],g=data[p+1],b=data[p+2];
-      if(r>128&&g>113&&b>96&&r+g+b>400&&
-         g<r+25&&b<g+52&&b>g*.63)mask[i]=1;
-    }
-    let expanded=mask;
-    for(let pass=0;pass<3;pass++){
-      const next=expanded.slice();
-      for(let yy=1;yy<h-1;yy++){
-        for(let xx=1;xx<w-1;xx++){
-          const k=yy*w+xx;
-          if(!expanded[k])continue;
-          for(let dy=-1;dy<=1;dy++)
-            for(let dx=-1;dx<=1;dx++)next[k+dy*w+dx]=1;
-        }
-      }
-      expanded=next;
-    }
-    const nearest=new Int32Array(n);nearest.fill(-1);
-    const queue=new Int32Array(n);let tail=0;
-    for(let i=0;i<n;i++){
-      const p=i*4,r=data[p],g=data[p+1],b=data[p+2];
-      if(!expanded[i]&&r>35&&r>g*1.5&&r>b*1.1&&g<88&&b<105){
-        nearest[i]=i;queue[tail++]=i;
-      }
-    }
-    for(let head=0;head<tail;head++){
-      const k=queue[head],xx=k%w;
-      const near=[xx?k-1:-1,xx<w-1?k+1:-1,k>=w?k-w:-1,k<n-w?k+w:-1];
-      for(const j of near){
-        if(j<0||nearest[j]!==-1)continue;
-        nearest[j]=nearest[k];queue[tail++]=j;
-      }
-    }
-    const fallback=ctx.getImageData(sampleX,sampleY,1,1).data;
-    for(let i=0;i<n;i++){
-      if(!expanded[i])continue;
-      const p=i*4,source=nearest[i],q=source*4;
-      data[p]=source<0?fallback[0]:data[q];
-      data[p+1]=source<0?fallback[1]:data[q+1];
-      data[p+2]=source<0?fallback[2]:data[q+2];
-    }
-    ctx.putImageData(img,x,y);
-  }
-  function centeredItalian(ctx,text,y,size,options={}){
-    ctx.save();
-    ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillStyle=options.color||CREAM;
-    ctx.font=(options.italic?'italic ':'')+(options.weight||'500')+' '+size+'px '+(options.script?'"Great Vibes", cursive':serif);
-    const max=options.maxWidth||770;
-    while(ctx.measureText(text).width>max&&size>18){
-      size--;ctx.font=(options.italic?'italic ':'')+(options.weight||'500')+' '+size+'px '+(options.script?'"Great Vibes", cursive':serif);
-    }
-    ctx.fillText(text,W/2,y);
-    ctx.restore();
-  }
-  function translateCardLetters(ctx,gap){
-    // Original "Thank You" on the burgundy field, safely away from faces.
-    overlayBurgundy(ctx,184,105,541,120);
-    centeredItalian(ctx,'Grazie di cuore',166,99,{script:true,maxWidth:530});
-    // Two lines immediately below Mattia & Kirsten.
-    overlayBurgundy(ctx,106,674,695,66,450,672);
-    centeredItalian(ctx,'Grazie per essere con noi in questo giorno speciale.',690,29,{italic:true,maxWidth:685});
-    centeredItalian(ctx,'Non vediamo l’ora di festeggiare insieme!',724,29,{italic:true,maxWidth:680});
-    // Original gold plaque and frame remain; only lettering inside it changes.
-    const plaqueY=805+gap;
-    ctx.save();
-    ctx.fillStyle='#f7db9d';
-    ctx.fillRect(320,plaqueY,280,32);
-    ctx.restore();
-    centeredItalian(ctx,'Dettagli del matrimonio',plaqueY+16,29,{italic:true,weight:'600',color:'#6d0c21',maxWidth:278});
-    // Signature under the unchanged gold details frame.
-    overlayBurgundy(ctx,214,1124+gap,480,76,450,1117+gap);
-    centeredItalian(ctx,'Con amore, Mattia & Kirsten',1159+gap,50,{script:true,maxWidth:477});
-  }
-  function replaceItalianDetails(ctx,source,offset){
-    // Rebuild only the textual part of the original gold-bordered details
-    // panel, leaving the perimeter, floral corner and left-side icons intact.
-    const left=158,top=851,right=808,bottom=1097,w=right-left,h=bottom-top;
-    const lineCanvas=document.createElement('canvas');
-    lineCanvas.width=W;lineCanvas.height=2;
-    const lc=lineCanvas.getContext('2d',{willReadFrequently:true});
-    lc.drawImage(source,0,850,W,1,0,0,W,1);
-    lc.drawImage(source,0,1098,W,1,0,1,W,1);
-    const upper=lc.getImageData(0,0,W,1).data;
-    const lower=lc.getImageData(0,1,W,1).data;
-    const existing=ctx.getImageData(left,top+offset,w,h);
+  // The original poster has one smooth burgundy background. Rebuild each
+  // complete text field from the DARK BURGUNDY pixels of the untouched JPEG,
+  // never from nearby letters. In particular, do not use per-glyph inpainting:
+  // it created visible red puddles and left parts of English words behind.
+  function paintCleanBurgundy(ctx,sourcePixels,x0,y0,x1,y1,offset=0,edge=3){
+    const w=x1-x0,h=y1-y0,mid=Math.floor((x0+x1)/2);
+    const colors=new Float32Array(h*6);
+    const halves=[[x0,mid],[mid,x1]];
     for(let y=0;y<h;y++){
-      const t=y/(h-1),fadeY=Math.min(1,(y+1)/8,(h-y)/8);
-      for(let x=0;x<w;x++){
-        const edgeFade=Math.min(1,(x+1)/10,(w-x)/10);
-        const alpha=Math.max(0,Math.min(fadeY,edgeFade));
-        const actualX=left+x,p=(y*w+x)*4,src=actualX*4;
-        for(let c=0;c<3;c++){
-          const clean=upper[src+c]*(1-t)+lower[src+c]*t;
-          existing.data[p+c]=Math.round(existing.data[p+c]*(1-alpha)+clean*alpha);
+      for(let side=0;side<2;side++){
+        const [left,right]=halves[side];
+        let r=0,g=0,b=0,count=0;
+        for(let x=left;x<right;x+=2){
+          const i=((y+y0)*W+x)*4;
+          const R=sourcePixels[i],G=sourcePixels[i+1],B=sourcePixels[i+2];
+          if(R>40&&R<140&&G<45&&B<48&&R>G*1.5){
+            r+=R;g+=G;b+=B;count++;
+          }
         }
+        const k=y*6+side*3;
+        // A row always has lots of clean burgundy because the JPEG text
+        // covers less than half the panel. Use a neutral fallback only if
+        // the input artwork ever changes.
+        colors[k]=count?r/count:77;
+        colors[k+1]=count?g/count:1;
+        colors[k+2]=count?b/count:9;
       }
     }
-    ctx.putImageData(existing,left,top+offset);
+    const smooth=new Float32Array(h*6);
+    for(let y=0;y<h;y++){
+      for(let k=0;k<6;k++){
+        let sum=0,count=0;
+        for(let d=-3;d<=3;d++){
+          const yy=Math.max(0,Math.min(h-1,y+d));
+          sum+=colors[yy*6+k];count++;
+        }
+        smooth[y*6+k]=sum/count;
+      }
+    }
+    const out=ctx.getImageData(x0,y0+offset,w,h),data=out.data;
+    for(let y=0;y<h;y++){
+      const fy=edge?Math.min(1,y/edge,(h-1-y)/edge):1;
+      const k=y*6;
+      for(let x=0;x<w;x++){
+        const fx=edge?Math.min(1,x/edge,(w-1-x)/edge):1;
+        const alpha=Math.max(0,Math.min(1,fx,fy));
+        if(alpha===0)continue;
+        const t=x/(w-1),p=(y*w+x)*4;
+        for(let c=0;c<3;c++){
+          const clean=smooth[k+c]*(1-t)+smooth[k+3+c]*t;
+          data[p+c]=Math.round(data[p+c]*(1-alpha)+clean*alpha);
+        }
+        data[p+3]=255;
+      }
+    }
+    ctx.putImageData(out,x0,y0+offset);
+  }
+
+  function restoreGold(ctx,sourcePixels,x0,y0,x1,y1){
+    // Restore gold decorative rays and the upper edge of the two picture
+    // frames after cleaning the large original "Thank You" lettering.
+    // White/cream English text never passes this gold color filter.
+    const w=x1-x0,h=y1-y0,mask=new Uint8Array(w*h);
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const i=((y+y0)*W+x+x0)*4,R=sourcePixels[i],
+        G=sourcePixels[i+1],B=sourcePixels[i+2];
+      if(R>120&&G>65&&B<G*.76&&G>B*1.28&&R>G*1.06)
+        mask[y*w+x]=1;
+    }
+    const expanded=mask.slice();
+    for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+      if(!mask[y*w+x])continue;
+      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)
+        expanded[(y+dy)*w+x+dx]=1;
+    }
+    const out=ctx.getImageData(x0,y0,w,h),data=out.data;
+    for(let i=0;i<expanded.length;i++){
+      if(!expanded[i])continue;
+      const x=i%w,y=Math.floor(i/w),si=((y+y0)*W+x+x0)*4,p=i*4;
+      data[p]=sourcePixels[si];
+      data[p+1]=sourcePixels[si+1];
+      data[p+2]=sourcePixels[si+2];
+      data[p+3]=255;
+    }
+    ctx.putImageData(out,x0,y0);
+  }
+
+  function paintCleanPlaque(ctx,sourcePixels,offset){
+    // The gold plaque has a horizontal cream-to-gold gradient. Recreate
+    // only its INNER lettering area; the gold border and ornament stay.
+    const x0=310,y0=795,w=291,h=41;
+    const avg=(xStart,xEnd,yStart,yEnd)=>{
+      const sum=[0,0,0];let n=0;
+      for(let y=yStart;y<yEnd;y++)for(let x=xStart;x<xEnd;x++){
+        const p=(y*W+x)*4;
+        for(let c=0;c<3;c++)sum[c]+=sourcePixels[p+c];
+        n++;
+      }
+      return sum.map(v=>v/n);
+    };
+    const top=avg(444,462,793,798);
+    const bottom=avg(444,462,833,836);
+    const out=ctx.getImageData(x0,y0+offset,w,h),data=out.data;
+    for(let yy=0;yy<h;yy++){
+      const Y=y0+yy;
+      const left=avg(308,314,Math.max(0,Y-2),Math.min(H,Y+3));
+      const right=avg(596,603,Math.max(0,Y-2),Math.min(H,Y+3));
+      const v=yy/h;
+      for(let xx=0;xx<w;xx++){
+        const t=xx/(w-1),centerWeight=4*t*(1-t);
+        const fade=Math.max(0,Math.min(1,xx/2,(w-1-xx)/2,yy/2,(h-1-yy)/2));
+        const p=(yy*w+xx)*4;
+        for(let c=0;c<3;c++){
+          const mid=top[c]*(1-v)+bottom[c]*v;
+          const edge=left[c]*(1-t)+right[c]*t;
+          const clean=edge*(1-centerWeight)+mid*centerWeight;
+          data[p+c]=Math.round(data[p+c]*(1-fade)+clean*fade);
+        }
+        data[p+3]=255;
+      }
+    }
+    ctx.putImageData(out,x0,y0+offset);
+  }
+
+  function centeredItalian(ctx,text,y,size,options={}){
+    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle=options.color||CREAM;
+    const family=options.script?'"Great Vibes", cursive':serif;
+    const max=options.maxWidth||770;
+    const setSize=n=>ctx.font=(options.italic?'italic ':'')+
+      (options.weight||'500')+' '+n+'px '+family;
+    setSize(size);
+    while(ctx.measureText(text).width>max&&size>18)setSize(--size);
+    ctx.fillText(text,W/2,y);ctx.restore();
+  }
+
+  function cleanItalianCard(ctx,sourcePixels,gap){
+    // Positions below the added guest-name area use the same gap as the
+    // original English generator. The original 906px photos are unchanged.
+    paintCleanBurgundy(ctx,sourcePixels,156,100,750,245,0,3);
+    restoreGold(ctx,sourcePixels,148,125,209,197);
+    restoreGold(ctx,sourcePixels,706,125,769,197);
+    restoreGold(ctx,sourcePixels,234,223,423,246);
+    restoreGold(ctx,sourcePixels,480,223,671,246);
+    paintCleanBurgundy(ctx,sourcePixels,105,672,804,744,0,4);
+    paintCleanPlaque(ctx,sourcePixels,gap);
+    paintCleanBurgundy(ctx,sourcePixels,153,846,827,1100,gap,3);
+    paintCleanBurgundy(ctx,sourcePixels,209,1114,706,1197,gap,4);
+  }
+
+  function drawItalianCardText(ctx,gap){
+    centeredItalian(ctx,'Grazie di cuore',166,96,
+      {script:true,maxWidth:565});
+    centeredItalian(ctx,'Grazie per essere con noi in questo giorno speciale.',694,29,
+      {italic:true,maxWidth:688});
+    centeredItalian(ctx,'Non vediamo l’ora di festeggiare insieme!',727,29,
+      {italic:true,maxWidth:688});
+    centeredItalian(ctx,'Dettagli del matrimonio',815+gap,28,
+      {italic:true,weight:'600',color:'#6d0c21',maxWidth:283});
+    centeredItalian(ctx,'Con amore, Mattia & Kirsten',1155+gap,51,
+      {script:true,maxWidth:486});
+  }
+
+  function drawItalianDetails(ctx,gap){
     const rows=[
-      ['CERIMONIA','Municipio di San Jose · Ufficio del Sindaco',870,20],
-      ['DATA','07 dicembre 2026',908,23],
-      ['ORA','Lunedì · ore 15:00',946,22],
-      ['RICEVIMENTO','Bahay Baluk-Baluk Restaurant',984,22],
-      ['ORARIO RICEV.','Dalle ore 18:00',1037,22],
-      ['ABBIGLIAMENTO','Semiformale · dal rosso al bordeaux',1076,20]
+      ['CERIMONIA','Municipio di San Jose · Ufficio del Sindaco',869,20],
+      ['DATA','07 dicembre 2026',908,22],
+      ['ORA','Lunedì · ore 15:00',948,22],
+      ['RICEVIMENTO','Bahay Baluk-Baluk Restaurant',987,22],
+      ['ORARIO RICEV.','Dalle ore 18:00',1029,22],
+      ['ABBIGLIAMENTO','Semiformale · dal rosso al bordeaux',1070,21]
     ];
     ctx.save();ctx.strokeStyle='#edc56d';ctx.lineWidth=2;
     for(const [label,value,y,fontSize] of rows){
-      const yy=y+offset;
+      const yy=y+gap;
       ctx.beginPath();ctx.moveTo(345,yy-14);ctx.lineTo(345,yy+15);ctx.stroke();
       write(ctx,label,165,yy,Math.min(17,fontSize),{align:'left',weight:'600'});
       let size=fontSize;
-      while(size>16&&width(ctx,value,size,{italic:true})>430)size--;
+      while(size>16&&width(ctx,value,size,{italic:true})>439)size--;
       write(ctx,value,369,yy,size,{align:'left',italic:true});
     }
     ctx.restore();
@@ -261,10 +317,18 @@
     ctx.drawImage(source,0,0,W,split,0,0,W,split);
     ctx.drawImage(source,0,split,W,H-split,0,split+gap,W,H-split);
     extendBlankBackground(ctx,source,split,gap);
-    // Translate embedded raster typography in place, at original pixels.
-    translateCardLetters(ctx,gap);
+    // Read the untouched source ONCE. Never sample from an image where
+    // previous text patches have already altered the background.
+    const original=document.createElement('canvas');
+    original.width=W;original.height=H;
+    const originalCtx=original.getContext('2d',{willReadFrequently:true});
+    if(!originalCtx)throw Error('Unable to prepare the original wedding artwork.');
+    originalCtx.drawImage(source,0,0,W,H);
+    const sourcePixels=originalCtx.getImageData(0,0,W,H).data;
+    cleanItalianCard(ctx,sourcePixels,gap);
+    drawItalianCardText(ctx,gap);
     guestBlock(ctx,names,split,seatCount);
-    replaceItalianDetails(ctx,source,gap);
+    drawItalianDetails(ctx,gap);
     // PNG preserves the full pixel detail of the source without a second
     // lossy encode. Gmail embeds these bytes inline.
     const result=canvas.toDataURL('image/png');
