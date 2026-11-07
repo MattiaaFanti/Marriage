@@ -456,10 +456,25 @@ async function submit(req,env){
   }
   await env.DB.batch(statements);
   const current=await memberEmailRecords(env,groupId);
+  const recipients=unsentAttendees(current);
+  // Special case only: someone was ALREADY Attending and remains so,
+  // while a previously Not Attending guest joins and needs a separate email.
+  // The email goes only to the new guest, but its PNG shows the number of
+  // seats reserved for everyone currently attending in that household.
+  const existingAttendee=members.some(m=>m.rsvp_status==="attending"&&
+    answers.get(Number(m.id))==="attending");
+  const newlyJoined=new Set(members.filter(m=>
+    m.rsvp_status==="not_attending"&&answers.get(Number(m.id))==="attending"
+  ).map(m=>Number(m.id)));
+  const supplementaryEmail=existingAttendee&&recipients.length>0&&
+    recipients.every(m=>newlyJoined.has(Number(m.id)));
+  const reservedSeats=current.filter(m=>m.rsvp_status==="attending").length;
   await notifyRSVPUpdate(env,"all");
   return json({
     ok:true,updated:members.length,
-    email_targets:unsentAttendees(current).map(m=>Number(m.id))
+    email_targets:recipients.map(m=>Number(m.id)),
+    email_card_seats:supplementaryEmail&&reservedSeats>recipients.length?
+      reservedSeats:null
   });
 }
 async function overview(env){
