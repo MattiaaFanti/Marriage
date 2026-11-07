@@ -129,8 +129,10 @@ async function memberEmailRecords(env,groupId){
   return records.results||[];
 }
 function unsentAttendees(members){
+  // An explicit NO is a saved preference: do not add someone who opted
+  // out of email to another attendee's later confirmation.
   return members.filter(m=>m.rsvp_status==='attending'&&
-    m.saved_choice!=='EMAIL'&&!Number(m.processing));
+    !m.saved_choice&&!Number(m.processing));
 }
 async function markSkipped(env,members){
   if(!members.length)return;
