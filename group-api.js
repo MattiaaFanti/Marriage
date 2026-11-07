@@ -139,7 +139,7 @@ async function lookup(req,env){
 }
 /* Send an RSVP confirmation through the free Gmail Apps Script integration.
    The wedding website renders a lossless PNG; Gmail embeds it inline. */
-async function sendConfirmationEmail(req,env){
+async function sendConfirmationEmail(req,env,ctx){
   const declared=Number(req.headers.get("content-length")||0);
   if(declared>9800000)return error("Confirmation image is too large.",413);
   const raw=await req.text();
@@ -172,6 +172,8 @@ async function sendConfirmationEmail(req,env){
       sample.charCodeAt(6)!==26||sample.charCodeAt(7)!==10)
       return error("The confirmation PNG image is corrupted.",400);
   }catch{return error("The confirmation PNG image is corrupted.",400);}
+  if(!ctx||typeof ctx.waitUntil!=="function")
+    return error("Background email delivery is temporarily unavailable.",503);
   if(!env.GMAIL_SCRIPT_URL||!env.GMAIL_SCRIPT_TOKEN){
     return error("Gmail confirmation is not configured yet. Please contact the couple.",503);
   }
@@ -188,11 +190,30 @@ async function sendConfirmationEmail(req,env){
     "group_id INTEGER NOT NULL,email_hash TEXT NOT NULL,created_at INTEGER NOT NULL,"+
     "PRIMARY KEY(group_id,email_hash))"
   ).run();
+  await ensureEmailChoices(env);
   const emailHash=await digest(groupId+"|"+email.toLowerCase());
   const at=now();
   await env.DB.prepare(
     "DELETE FROM rsvp_confirmation_deliveries WHERE created_at<?"
   ).bind(at-86400).run();
+  const previous=await env.DB.prepare(
+    "SELECT choice,email FROM rsvp_confirmation_choices WHERE group_id=?"
+  ).bind(groupId).first();
+  if(previous?.choice==="EMAIL"&&String(previous.email||"").toLowerCase()===email.toLowerCase()){
+    return json({ok:true,sent:true,already_sent:true});
+  }
+  const pending=await env.DB.prepare(
+    "SELECT created_at FROM rsvp_confirmation_deliveries WHERE group_id=? AND email_hash=?"
+  ).bind(groupId,emailHash).first();
+  // Old interrupted requests may leave an orphaned limiter row. After 45s,
+  // permit a new attempt; do not mistake the row for a completed delivery.
+  if(pending){
+    if(at-Number(pending.created_at)<45)
+      return json({ok:true,queued:true,already_queued:true},202);
+    await env.DB.prepare(
+      "DELETE FROM rsvp_confirmation_deliveries WHERE group_id=? AND email_hash=?"
+    ).bind(groupId,emailHash).run();
+  }
   const count=await env.DB.prepare(
     "SELECT COUNT(*) AS n FROM rsvp_confirmation_deliveries WHERE group_id=? AND created_at>=?"
   ).bind(groupId,at-86400).first();
@@ -202,33 +223,38 @@ async function sendConfirmationEmail(req,env){
     "INSERT OR IGNORE INTO rsvp_confirmation_deliveries(group_id,email_hash,created_at) VALUES(?,?,?)"
   ).bind(groupId,emailHash,at).run();
   if(!Number(claimed.meta?.changes))
-    return error("A confirmation was already requested for this e-mail address today.",429);
-  try{
-    const response=await fetch(env.GMAIL_SCRIPT_URL,{
-      method:"POST",
-      headers:{"Content-Type":"text/plain; charset=utf-8"},
-      body:JSON.stringify({
-        token:env.GMAIL_SCRIPT_TOKEN,
-        to:email,
-        image_base64:match[1],
-        subject:"Mattia & Ker Marriage - Your Wedding Confirmation!"
-      }),
-      redirect:"follow"
-    });
-    const details=await response.json().catch(()=>({}));
-    if(!response.ok||details.ok!==true)
-      throw Error("Gmail could not send the confirmation. Please try again later.");
-    // Only a successful provider acceptance is recorded as EMAIL.
-    // Every guest in this group displays this same address in the admin panel.
-    await saveEmailChoice(env,groupId,'EMAIL',email);
-    return json({ok:true,sent:true});
-  }catch(err){
-    // Provider failures must not consume the one-confirmation-per-recipient quota.
-    await env.DB.prepare(
-      "DELETE FROM rsvp_confirmation_deliveries WHERE group_id=? AND email_hash=?"
-    ).bind(groupId,emailHash).run().catch(()=>{});
-    return error(err?.message||"Unable to send the confirmation e-mail.",502);
-  }
+    return json({ok:true,queued:true,already_queued:true},202);
+
+  // The request belongs to the Cloudflare Worker. Its lifetime no longer
+  // depends on a browser window, page navigation, or dismissal of the modal.
+  const deliver=(async()=>{
+    try{
+      const response=await fetch(env.GMAIL_SCRIPT_URL,{
+        method:"POST",
+        headers:{"Content-Type":"text/plain; charset=utf-8"},
+        body:JSON.stringify({
+          token:env.GMAIL_SCRIPT_TOKEN,
+          to:email,
+          image_base64:match[1],
+          subject:"Mattia & Ker Marriage - Your Wedding Confirmation!"
+        }),
+        redirect:"follow"
+      });
+      const details=await response.json().catch(()=>({}));
+      if(!response.ok||details.ok!==true)
+        throw Error("Gmail did not accept the wedding confirmation.");
+      // Store the recipient address only after Gmail returns success.
+      await saveEmailChoice(env,groupId,"EMAIL",email);
+      console.log("[Wedding RSVP] Email sent by Gmail for group",groupId);
+    }catch(err){
+      console.error("[Wedding RSVP] Background Gmail delivery failed",groupId,err?.message||err);
+      await env.DB.prepare(
+        "DELETE FROM rsvp_confirmation_deliveries WHERE group_id=? AND email_hash=?"
+      ).bind(groupId,emailHash).run().catch(()=>{});
+    }
+  })();
+  ctx.waitUntil(deliver);
+  return json({ok:true,queued:true},202);
 }
 
 async function submit(req,env){
@@ -401,12 +427,12 @@ async function exportCsv(env){
 }
 /* Public, passwordless RSVP dashboard by owner request. Admin status changes
    are explicitly unauthenticated; do not expose extra operations. */
-export async function groupedRoutes(req,env){
+export async function groupedRoutes(req,env,ctx){
   const path=new URL(req.url).pathname,method=req.method;
   if(path==="/api/household/suggest"&&method==="POST")return suggest(req,env);
   if(path==="/api/household/lookup"&&method==="POST")return lookup(req,env);
   if(path==="/api/household/confirm"&&method==="POST")return submit(req,env);
-  if(path==="/api/household/send-confirmation-email"&&method==="POST")return sendConfirmationEmail(req,env);
+  if(path==="/api/household/send-confirmation-email"&&method==="POST")return sendConfirmationEmail(req,env,ctx);
   if(path==="/api/household/skip-confirmation-email"&&method==="POST")return skipConfirmationEmail(req,env);
   if(path==="/api/admin/households"&&method==="GET")return json(await overview(env));
   if(path==="/api/admin/households/events"&&method==="GET")return eventHistory(req,env);
