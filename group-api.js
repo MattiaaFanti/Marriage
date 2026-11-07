@@ -48,12 +48,42 @@ async function ensureEmailChoices(env){
   ).run();
 }
 // A manual admin edit clears the visible email only for that individual.
- // The shared group email must remain available to other Attending members.
+// The shared group email remains available to the other guests.
+let memberEmailClearsReady=false;
 async function ensureMemberEmailClears(env){
+  if(memberEmailClearsReady)return;
   await env.DB.prepare(
     "CREATE TABLE IF NOT EXISTS rsvp_member_email_clears ("+
     "member_id INTEGER PRIMARY KEY, cleared_at TEXT NOT NULL)"
   ).run();
+  // Recover manually edited guests whose old emails were still showing
+  // before per-member clearing existed. Run this repair exactly once.
+  const version="wedding-member-email-manual-edit-backfill-v1";
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS rsvp_data_migrations ("+
+    "name TEXT PRIMARY KEY,applied_at TEXT NOT NULL)"
+  ).run();
+  const applied=await env.DB.prepare(
+    "SELECT name FROM rsvp_data_migrations WHERE name=?"
+  ).bind(version).first();
+  if(!applied){
+    await env.DB.batch([
+      env.DB.prepare(
+        "INSERT OR IGNORE INTO rsvp_member_email_clears(member_id,cleared_at) "+
+        "SELECT e.member_id,MAX(e.received_at) FROM rsvp_member_events e "+
+        "JOIN rsvp_members m ON m.id=e.member_id "+
+        "JOIN rsvp_confirmation_choices c ON c.group_id=m.group_id "+
+        "WHERE e.source='admin' AND ("+
+        "(c.choice='EMAIL' AND e.received_at>c.updated_at) OR "+
+        "(c.choice='NO' AND e.received_at=c.updated_at)) "+
+        "GROUP BY e.member_id"
+      ),
+      env.DB.prepare(
+        "INSERT OR IGNORE INTO rsvp_data_migrations(name,applied_at) VALUES(?,?)"
+      ).bind(version,new Date().toISOString())
+    ]);
+  }
+  memberEmailClearsReady=true;
 }
 async function saveEmailChoice(env,groupId,choice,email=''){
   await ensureEmailChoices(env);
