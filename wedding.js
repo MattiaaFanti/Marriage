@@ -13,7 +13,7 @@
   const guestRoleLabel = role => {
     const original=String(role||'');
     const label=original.trim().toLowerCase();
-    return label==='ninang'?'Nina':label==='ninong'?'Nino':label==='umpeng'?'Umpe':original;
+    return (label==='ninang'||label==='nina')?'Ninang':(label==='ninong'||label==='nino')?'Ninong':label==='umpeng'?'Umpe':original;
   };
   document.querySelectorAll('[data-wedding-date]').forEach(n => n.textContent = 'MONDAY · 07 DECEMBER 2026');
   document.querySelectorAll('[data-wedding-address]').forEach(n => n.textContent = cfg.address || 'Mataas Na Kahoy, Lipa, Batangas, Philippines');
