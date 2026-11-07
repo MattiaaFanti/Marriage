@@ -33,8 +33,7 @@ a{color:inherit}
 .splash{position:fixed;z-index:999;inset:0;display:grid;place-items:center;background:#63000a;color:#f8e9db;text-align:center;opacity:1;visibility:visible;transition:opacity .76s ease,visibility .76s ease}
 .splash.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
 .splash-inner{padding:24px}
-.splash-mark{font:400 clamp(77px,11vw,125px)/.85 'Cormorant Garamond',serif;letter-spacing:-.075em}
-.splash-mark span{font-size:.43em;letter-spacing:0;vertical-align:middle;color:#dfb990;margin:0 .1em}
+.splash-mark{display:block;width:clamp(145px,21vw,181px);max-width:62vw;height:auto;aspect-ratio:181/112;object-fit:contain;margin:0 auto;filter:none;opacity:1}
 .splash-names{font:400 clamp(22px,2.8vw,36px) 'Cormorant Garamond',serif;letter-spacing:.17em;margin-top:36px}
 /* Italy-to-Philippines wedding journey. Keep the original loading line exactly 200px wide. */
 .splash-progress{position:relative;width:200px;max-width:60vw;height:58px;margin:13px auto 10px;isolation:isolate}
@@ -90,7 +89,7 @@ body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
 /* Second visible page only. Keep the cover and other sections untouched. */
 .invitation-section{min-height:auto;padding:clamp(58px,7vw,85px) 22px clamp(65px,8vw,96px)}
 .invitation-inner{max-width:760px}
-.invitation-section .invitation-monogram{display:block;width:clamp(145px,19vw,190px);height:auto;aspect-ratio:181/112;object-fit:contain;margin:0 auto clamp(19px,2.8vw,29px);border:0;border-radius:0;background:transparent;box-shadow:none;opacity:.84;filter:grayscale(1) brightness(1.16) contrast(1.08)}
+.invitation-section .invitation-monogram{display:block;width:clamp(145px,19vw,190px);height:auto;aspect-ratio:181/112;object-fit:contain;margin:0 auto clamp(19px,2.8vw,29px);border:0;border-radius:0;background:transparent;box-shadow:none;opacity:1;filter:none}
 .invitation-section .invitation-lead,
 .invitation-section .invitation-message,
 .invitation-section .invitation-remote-heading,
@@ -110,7 +109,7 @@ body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
 .invitation-section .invitation-signature{margin:0 auto;font-size:clamp(30px,4.1vw,44px);font-weight:600;line-height:1.2;letter-spacing:.03em}
 @media(max-width:600px){
  .invitation-section{padding:56px 22px 70px}
- .invitation-section .invitation-monogram{width:clamp(125px,37vw,155px);margin-bottom:23px;opacity:.84}
+ .invitation-section .invitation-monogram{width:clamp(125px,37vw,155px);margin-bottom:23px;opacity:1}
  .invitation-section .invitation-title{font-size:clamp(58px,14.5vw,77px);margin:7px auto 14px}
  .invitation-divider{margin:28px auto 26px}
  .invitation-section .invitation-with-love{margin-top:25px}
@@ -329,7 +328,7 @@ body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
  from{opacity:0;transform:translate3d(0,8px,0) scale(.95)}
  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
 }
-.wedding-motion-on .invitation-monogram.wedding-reveal.is-visible{opacity:.84}
+.wedding-motion-on .invitation-monogram.wedding-reveal.is-visible{opacity:1}
 @media(hover:hover) and (pointer:fine){
  .wedding-motion-on .venue-photo.wedding-reveal.is-visible:hover{
   transform:translate3d(0,-3px,0) scale(1.008);
@@ -354,7 +353,7 @@ body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
 </head>
 <body style="background-color:var(--burgundy,#63000a)">
 <div class="splash" id="opening" aria-label="Opening title" aria-hidden="false">
- <div class="splash-inner"><div class="splash-mark" aria-label="M and K">M<span>&amp;</span>K</div><div class="splash-names">Mattia &amp; Kirsten</div><div class="splash-progress" role="img" aria-label="Mattia flies from Italy to Kirsten, who waits in the Philippines, as the invitation loads.">
+ <div class="splash-inner"><img class="splash-mark" src="./monogram-transparent.png?v=b805aab38369" width="181" height="112" alt="Mattia and Kirsten monogram" fetchpriority="high" decoding="async"><div class="splash-names">Mattia &amp; Kirsten</div><div class="splash-progress" role="img" aria-label="Mattia flies from Italy to Kirsten, who waits in the Philippines, as the invitation loads.">
   <span class="splash-track" aria-hidden="true"><span class="splash-track-fill"></span></span>
   <span class="splash-traveler" aria-hidden="true">
     <span class="splash-it-flag"></span>
