@@ -211,7 +211,7 @@
         '<div class="rsvp-email-success" role="status" aria-live="polite">'+
           '<span class="rsvp-success-mark rsvp-queued-mark" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="21" stroke="currentColor" stroke-width="2.6"/><path d="M24 12v13l9 5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>'+
           '<h2 id="rsvpHeading">Your email is on its way!</h2>'+
-          '<p>We are sending your wedding confirmation to<br><strong>'+enc(state.confirmationEmail)+'</strong>.</p>'+
+          '<p>We are processing your wedding confirmation for<br><strong>'+enc(state.confirmationEmail)+'</strong>.</p>'+
           '<p class="rsvp-success-signoff">See you soon!</p>'+
         '</div>'+primary('OK','close');
     }
@@ -408,50 +408,54 @@
       }
       const generation=lookupGeneration;
       const names=attendingMembers().map(m=>m.name);
-      const startedAt=Date.now();
+      // Initiate image generation and the Cloudflare request immediately.
+      // They are independent of the popup's two-second display timer.
       state.busy=true;state.error='';
-      state.sendingPhase='Preparing your wedding invitation…';render();
-      try{
+      state.sendingPhase='Preparing your confirmation email…';render();
+      let submitted=null,submitError=null;
+      const submission=(async()=>{
         const image=await window.WEDDING_CONFIRMATION_IMAGE.createImage(names);
-        if(generation!==lookupGeneration)return;
-        state.sendingPhase='Submitting your confirmation to our email service…';render();
-        // Cloudflare takes ownership of delivery before it answers this call.
-        // Closing the popup after acceptance cannot cancel the Gmail request.
         const response=await fetch(api+'/api/household/send-confirmation-email',{
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
             household_token:state.token,email,
             image_data_url:image,attending_names:names
-          }),
-          cache:'no-store'
+          }),cache:'no-store'
         });
         const data=await response.json().catch(()=>({}));
-        if(generation!==lookupGeneration)return;
         if(!response.ok||!data.ok)
-          throw Error(data.error||'Unable to submit your confirmation email.');
-        // Two-second minimum from the original click, not three.
-        const remaining=Math.max(0,2000-(Date.now()-startedAt));
-        if(remaining)await new Promise(resolve=>setTimeout(resolve,remaining));
-        if(generation!==lookupGeneration)return;
-        state.busy=false;state.sendingPhase='';
-        // "Sent" is shown only when the server has confirmed delivery;
-        // otherwise show the accurate queued/processing acknowledgment.
-        if(data.sent){
-          state.emailChoice='EMAIL';
-          state.step='emailSent';
-        }else{
-          state.step='emailQueued';
+          throw Error(data.error||'The confirmation could not be submitted.');
+        return data;
+      })();
+      // Attach rejection handlers immediately to avoid unhandled errors.
+      submission.then(data=>{
+        submitted=data;
+        if(generation!==lookupGeneration||modal.hidden)return;
+        if(state.step==='emailQueued'&&data.sent){
+          state.step='emailSent';state.emailChoice='EMAIL';render();
         }
-        render();return;
-      }catch(err){
-        if(generation!==lookupGeneration)return;
-        state.error=err.message||'Unable to submit your confirmation email.';
-      }finally{
-        if(generation===lookupGeneration){
-          state.busy=false;
-          if(!modal.hidden&&state.step==='done')render();
+      },err=>{
+        submitError=err;
+        console.error('Wedding e-mail submission failed:',err);
+        if(generation!==lookupGeneration||modal.hidden)return;
+        if(state.step==='emailQueued'){
+          state.step='done';state.error=err.message||'Email could not be submitted.';render();
         }
+      });
+      // The acknowledgement screen appears after TWO seconds, even if the
+      // image upload is still underway. This never cancels the submission.
+      await new Promise(resolve=>setTimeout(resolve,2000));
+      if(generation!==lookupGeneration)return;
+      state.busy=false;state.sendingPhase='';
+      if(submitError){
+        state.step='done';
+        state.error=submitError.message||'Email could not be submitted.';
+      }else if(submitted?.sent){
+        state.emailChoice='EMAIL';state.step='emailSent';
+      }else{
+        state.step='emailQueued';
       }
+      render();
       return;
     }
     if(kind==='retrySearch'){open();return;}
