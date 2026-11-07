@@ -104,7 +104,7 @@
   modal.innerHTML='<section class="rsvp-dialog" role="dialog" aria-modal="true" aria-labelledby="rsvpHeading"><button class="rsvp-x" type="button" aria-label="Close">×</button><div class="rsvp-content"></div></section>';
   document.body.appendChild(modal);
   const content=modal.querySelector('.rsvp-content');
-  const state={step:'find',name:'',selectedId:null,token:'',members:[],answers:{},error:'',busy:false,confirmationEmail:'',emailChoice:''};
+  const state={step:'find',name:'',selectedId:null,token:'',members:[],answers:{},error:'',busy:false,confirmationEmail:'',emailChoice:'',sendingPhase:''};
   const enc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const nameKey=s=>String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/\s+/g,' ');
   const validName=s=>s.length>=3&&s.length<=100&&/^[a-z]+(?:[ '-][a-z]+)*$/.test(s);
@@ -188,13 +188,23 @@
           '<label for="rsvpConfirmEmail">E-mail address</label>'+
           '<input id="rsvpConfirmEmail" type="email" autocomplete="email" inputmode="email" maxlength="254" placeholder="Enter your e-mail address" value="'+enc(state.confirmationEmail)+'"'+(state.busy?' disabled':'')+'>'+
           error()+
+          (state.busy?'<p class="rsvp-email-progress" role="status" aria-live="polite"><span class="rsvp-spinner" aria-hidden="true"></span>'+enc(state.sendingPhase||'Sending your confirmation…')+'</p>':'')+
           '<div class="rsvp-done-actions">'+
-          '<button type="submit" class="rsvp-primary rsvp-email-action"'+(state.busy?' disabled':'')+'>'+(state.busy?'Sending…':'Send email - See you soon!')+'</button>'+
+          '<button type="submit" class="rsvp-primary rsvp-email-action"'+(state.busy?' disabled':'')+'>'+(state.busy?'<span class="rsvp-spinner" aria-hidden="true"></span> Sending…':'Send email - See you soon!')+'</button>'+
           '<button type="button" class="rsvp-primary rsvp-email-action rsvp-email-skip" data-act="skipEmail"'+(state.busy?' disabled':'')+'>Skip - I don&#39;t want a confirmation e-mail</button>'+
           '</div></form>';
       }else{
         html+=primary('Back to the invitation','close');
       }
+    }
+    if(state.step==='emailSent'){
+      html='<p class="rsvp-kicker">MATTIA & KIRSTEN</p>'+
+        '<div class="rsvp-email-success" role="status" aria-live="polite">'+
+          '<span class="rsvp-success-mark" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="21" stroke="currentColor" stroke-width="2.6"/><path d="M13 24l8 8 15-17" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>'+
+          '<h2 id="rsvpHeading">Email sent successfully!</h2>'+
+          '<p>Your wedding confirmation has been sent to<br><strong>'+enc(state.confirmationEmail)+'</strong>.</p>'+
+          '<p class="rsvp-success-signoff">See you soon!</p>'+
+        '</div>'+primary('Back to the invitation','close');
     }
     content.innerHTML=html;
     content.querySelectorAll('[data-act]').forEach(btn=>btn.addEventListener('click',()=>action(btn.dataset.act)));
@@ -389,10 +399,11 @@
       }
       const generation=lookupGeneration;
       const names=attendingMembers().map(m=>m.name);
-      state.busy=true;state.error='';render();
+      state.busy=true;state.error='';state.sendingPhase='Preparing your wedding invitation…';render();
       try{
         const image=await window.WEDDING_CONFIRMATION_IMAGE.createImage(names);
         if(generation!==lookupGeneration)return;
+        state.sendingPhase='Sending your confirmation email…';render();
         const response=await fetch(api+'/api/household/send-confirmation-email',{
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
@@ -404,7 +415,8 @@
         const data=await response.json().catch(()=>({}));
         if(generation!==lookupGeneration)return;
         if(!response.ok)throw Error(data.error||'Could not send the confirmation e-mail.');
-        state.emailChoice='EMAIL';state.busy=false;close();return;
+        state.emailChoice='EMAIL';state.busy=false;state.sendingPhase='';
+        state.step='emailSent';render();return;
       }catch(err){
         if(generation!==lookupGeneration)return;
         state.error=err.message||'Could not send the confirmation e-mail.';
@@ -500,7 +512,7 @@
     document.body.classList.remove('rsvp-open');
     state.step=preselected?'loading':'find';
     state.name=name;state.selectedId=id;state.token='';state.members=[];
-    state.answers={};state.error='';state.busy=false;state.confirmationEmail='';state.emailChoice='';
+    state.answers={};state.error='';state.busy=false;state.confirmationEmail='';state.emailChoice='';state.sendingPhase='';
     if(preselected){
       // Never render a search form during a selected-guest lookup.
       // Reveal only when group choices are ready (or on a real error).
