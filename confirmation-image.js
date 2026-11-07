@@ -169,16 +169,36 @@
     return y;
   }
   function correctReferenceAddress(c,offset){
-    // Cover the original three right-hand values with matching burgundy,
-    // preserving the gold dividers and the left-hand event labels.
-    const x=354,y=984+offset,w=469,h=111;
-    const grad=c.createLinearGradient(x,y,x+w,y);
-    grad.addColorStop(0,'#63000f');grad.addColorStop(.8,'#5a000d');grad.addColorStop(1,'#570009');
-    rect(c,x,y,w,h,grad);
-    type(c,'Bahay Baluk Baluk Restaurant',370,994+offset,24,{align:'left',italic:true});
-    type(c,'Maatas Na Kahoy, Lipa City, Batangas',370,1020+offset,21,{align:'left',italic:true});
-    type(c,'6:00 PM onwards',370,1051+offset,24,{align:'left',italic:true});
-    type(c,'Semi-formal · Shades of Red to Burgundy',370,1088+offset,22,{align:'left',italic:true});
+    // Replace only the three right-hand values. Recreate their actual
+    // burgundy background from clean poster rows rather than placing a dark
+    // rectangle over the original design.
+    const x=357,y=973+offset,w=461,h=116;
+    const top=c.getImageData(x,968+offset,w,1).data;
+    const bottom=c.getImageData(x,1091+offset,w,1).data;
+    const block=c.createImageData(w,h);
+    for(let row=0;row<h;row++){
+      const t=row/(h-1);
+      for(let col=0;col<w;col++){
+        const k=col*4,p=(row*w+col)*4;
+        for(let ch=0;ch<3;ch++){
+          const c1=top[k+ch],c2=bottom[k+ch];
+          // Avoid carrying a decorative highlight or lettering all the way
+          // through the painted area.
+          block.data[p+ch]=Math.round((c1>135?78:c1)*(1-t)+(c2>135?78:c2)*t);
+        }
+        block.data[p+3]=255;
+      }
+    }
+    c.putImageData(block,x,y);
+    const value=(label,yy,targetSize)=>{
+      let sz=targetSize;
+      while(sz>17&&measure(c,label,sz,{italic:true})>440)sz--;
+      type(c,label,371,yy+offset,sz,{align:'left',italic:true});
+    };
+    value('Bahay Baluk Baluk Restaurant',987,23);
+    value('Maatas Na Kahoy, Lipa City, Batangas',1010,21);
+    value('6:00 PM onwards',1036,23);
+    value('Semi-formal · Shades of Red to Burgundy',1072,22);
   }
   async function createImage(names){
     if(!Array.isArray(names)||!names.length||names.length>20||
@@ -202,7 +222,7 @@
     canvas.width=W;canvas.height=ORIGINAL_H+gap;
     const c=canvas.getContext('2d',{alpha:false});
     if(!c)throw Error('Image rendering is not supported on this device.');
-    const split=739;
+    const split=751;
     rect(c,0,0,W,canvas.height,DARK);
     const image=reference||base;
     const width=reference?reference.naturalWidth:W;
@@ -212,10 +232,23 @@
     c.drawImage(image,0,0,width,splitSource,0,0,W,split);
     c.drawImage(image,0,splitSource,width,height-splitSource,
       0,split+gap,W,ORIGINAL_H-split);
-    // Fill with a burgundy gradient matching the original poster.
-    const fill=c.createLinearGradient(0,split,0,split+gap);
-    fill.addColorStop(0,'#65000f');fill.addColorStop(.5,'#710012');fill.addColorStop(1,'#63000d');
-    rect(c,37,split,W-74,gap,fill);
+    // Match every column of the untouched source image at both edges of
+    // the new central area. No stretching, upscaling or visible dark seam.
+    const innerX=37,innerW=W-74;
+    const above=c.getImageData(innerX,split-1,innerW,1).data;
+    const below=c.getImageData(innerX,split+gap,innerW,1).data;
+    const stripe=c.createImageData(innerW,gap);
+    for(let yy=0;yy<gap;yy++){
+      const t=yy/(gap-1);
+      for(let xx=0;xx<innerW;xx++){
+        const pos=xx*4,out=(yy*innerW+xx)*4;
+        stripe.data[out]=Math.round(above[pos]*(1-t)+below[pos]*t);
+        stripe.data[out+1]=Math.round(above[pos+1]*(1-t)+below[pos+1]*t);
+        stripe.data[out+2]=Math.round(above[pos+2]*(1-t)+below[pos+2]*t);
+        stripe.data[out+3]=255;
+      }
+    }
+    c.putImageData(stripe,innerX,split);
     ln(c,17,split,17,split+gap,'#d7a246',5);
     ln(c,28,split,28,split+gap,'#f7e0a0',2);
     ln(c,W-17,split,W-17,split+gap,'#d7a246',5);
