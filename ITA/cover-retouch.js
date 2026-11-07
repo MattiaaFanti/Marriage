@@ -116,7 +116,7 @@
       // Entire original English text footprints, with margins well away
       // from the gold bows and both children's frames. The original
       // English glyphs are completely covered before Italian is drawn.
-      clearLettering(555,25,946,169,22,false);    // THESE KIDS ARE
+      clearLettering(555,25,946,169,22,true);    // THESE KIDS ARE
       clearLettering(415,180,1230,620,33,true);   // getting married
       clearLettering(565,791,931,196,27,false);   // can't wait...
       
