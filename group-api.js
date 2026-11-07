@@ -186,8 +186,18 @@ async function sendConfirmationEmail(req,env){
       sample.charCodeAt(sample.length-2)!==255||sample.charCodeAt(sample.length-1)!==217)
       return error("The confirmation image is corrupted.",400);
   }catch{return error("The confirmation image is corrupted.",400);}
-  if(!env.RESEND_API_KEY||!env.RESEND_FROM){
+  // Free sending alternative: a Gmail account authorized through Google Apps Script.
+  // Resend remains supported if the Apps Script integration is not configured.
+  const gmailConfigured=Boolean(env.GMAIL_SCRIPT_URL&&env.GMAIL_SCRIPT_TOKEN);
+  if(!gmailConfigured&&(!env.RESEND_API_KEY||!env.RESEND_FROM)){
     return error("Confirmation e-mail is not configured yet. Please contact the couple.",503);
+  }
+  if(gmailConfigured){
+    let scriptURL;
+    try{scriptURL=new URL(env.GMAIL_SCRIPT_URL);}catch{return error('Invalid Gmail mailer URL.',503);}
+    if(scriptURL.protocol!=='https:'||scriptURL.hostname!=='script.google.com'||
+       !/^\/macros\/s\/[^/]+\/exec$/.test(scriptURL.pathname))
+      return error('Invalid Gmail mailer URL.',503);
   }
   if(!await throttle(req,env,"confirmation-mail",5))
     return error("Too many confirmation requests. Please try again later.",429);
@@ -213,26 +223,41 @@ async function sendConfirmationEmail(req,env){
   if(!Number(claimed.meta?.changes))
     return error("A confirmation was already requested for this e-mail address today.",429);
   try{
-    const result=await fetch("https://api.resend.com/emails",{
-      method:"POST",
-      headers:{"Authorization":"Bearer "+env.RESEND_API_KEY,"Content-Type":"application/json"},
-      body:JSON.stringify({
-        from:env.RESEND_FROM,
-        to:[email],
-        subject:"Mattia & Kirsten Marriage - 07 December 2026",
-        // No paragraphs, signatures, or other text: only the personalized photo.
-        html:'<img src="cid:wedding-confirmation" alt="Mattia and Kirsten wedding confirmation" width="560" style="display:block;width:100%;max-width:560px;height:auto;margin:0 auto;border:0;">',
-        attachments:[{
-          filename:"mattia-kirsten-wedding-confirmation.jpg",
-          content:match[1],
-          content_id:"wedding-confirmation"
-        }]
-      })
-    });
-    if(!result.ok){
-      const detail=await result.json().catch(()=>({}));
-      console.warn("[Wedding] Resend request rejected:",result.status,detail?.message||"");
-      throw Error("The e-mail provider could not send the confirmation. Please try again later.");
+    if(gmailConfigured){
+      const response=await fetch(env.GMAIL_SCRIPT_URL,{
+        method:"POST",
+        headers:{"Content-Type":"text/plain; charset=utf-8"},
+        body:JSON.stringify({
+          token:env.GMAIL_SCRIPT_TOKEN,
+          to:email,
+          image_base64:match[1]
+        }),
+        redirect:"follow"
+      });
+      const details=await response.json().catch(()=>({}));
+      if(!response.ok||details.ok!==true)
+        throw Error("Gmail could not send the confirmation. Please try again later.");
+    }else{
+      const result=await fetch("https://api.resend.com/emails",{
+        method:"POST",
+        headers:{"Authorization":"Bearer "+env.RESEND_API_KEY,"Content-Type":"application/json"},
+        body:JSON.stringify({
+          from:env.RESEND_FROM,
+          to:[email],
+          subject:"Mattia & Kirsten Marriage - 07 December 2026",
+          html:'<img src="cid:wedding-confirmation" alt="Mattia and Kirsten wedding confirmation" width="560" style="display:block;width:100%;max-width:560px;height:auto;margin:0 auto;border:0;">',
+          attachments:[{
+            filename:"mattia-kirsten-wedding-confirmation.jpg",
+            content:match[1],
+            content_id:"wedding-confirmation"
+          }]
+        })
+      });
+      if(!result.ok){
+        const detail=await result.json().catch(()=>({}));
+        console.warn("[Wedding] Resend request rejected:",result.status,detail?.message||"");
+        throw Error("The e-mail provider could not send the confirmation. Please try again later.");
+      }
     }
     // Only a successful provider acceptance is recorded as EMAIL.
     // Every guest in this group displays this same address in the admin panel.
