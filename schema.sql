@@ -81,3 +81,14 @@ CREATE TABLE IF NOT EXISTS rsvp_confirmation_deliveries (
 );
 CREATE INDEX IF NOT EXISTS rsvp_confirmation_deliveries_time
   ON rsvp_confirmation_deliveries(created_at);
+
+
+-- Group-wide response for the optional email confirmation.
+-- All members of a group share the same choice and address.
+-- The D1 Worker creates this table automatically for existing deployments.
+CREATE TABLE IF NOT EXISTS rsvp_confirmation_choices (
+  group_id INTEGER PRIMARY KEY,
+  choice TEXT NOT NULL CHECK(choice IN ('NO','EMAIL')),
+  email TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL
+);
