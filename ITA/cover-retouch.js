@@ -99,8 +99,8 @@
         c.globalCompositeOperation='source-over';
         ctx.drawImage(clip,x,0);
       }
-      restoreCorner(0,585,false);
-      restoreCorner(1463,585,true);
+      restoreCorner(0,455,false);
+      restoreCorner(1610,438,true);
 
       // Reuse the exact small decorative gold rays next to the heading,
       // never copying any of the original cream English lettering.
