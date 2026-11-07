@@ -70,3 +70,14 @@ CREATE TABLE IF NOT EXISTS rsvp_lookup_limiter (
   window_start INTEGER NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0
 );
+
+-- Confirmation e-mail throttling. Stores only a hash of the recipient address.
+-- The Worker also creates this table lazily on existing D1 databases.
+CREATE TABLE IF NOT EXISTS rsvp_confirmation_deliveries (
+  group_id INTEGER NOT NULL,
+  email_hash TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (group_id,email_hash)
+);
+CREATE INDEX IF NOT EXISTS rsvp_confirmation_deliveries_time
+  ON rsvp_confirmation_deliveries(created_at);
