@@ -36,12 +36,19 @@ function doPost(e) {
     if (MailApp.getRemainingDailyQuota() < 1) {
       return jsonResponse_({ok:false,error:'Daily Gmail quota reached'});
     }
-    const inline = Utilities.newBlob(bytes, 'image/png', 'mattia-kirsten-confirmation.png');
+    const italian = data.locale === 'it';
+    const inline = Utilities.newBlob(bytes, 'image/png',
+      italian ? 'conferma-matrimonio-mattia-kirsten.png' : 'mattia-kirsten-confirmation.png');
     MailApp.sendEmail({
       to:to,
-      subject:String(data.subject || 'Save the date! - Your Wedding Confirmation').slice(0,180),
+      subject:String(data.subject || (italian ?
+        'Mattia & Kirsten - Conferma della partecipazione al matrimonio' :
+        'Save the date! - Your Wedding Confirmation')).slice(0,180),
       body:' ',
-      htmlBody:'<img src="cid:wedding" alt="Mattia and Kirsten wedding confirmation" width="560" style="display:block;width:100%;max-width:560px;height:auto;margin:0 auto;border:0">',
+      htmlBody:'<img src="cid:wedding" alt="'+(italian ?
+        'Conferma del matrimonio di Mattia e Kirsten' :
+        'Mattia and Kirsten wedding confirmation')+
+        '" width="560" style="display:block;width:100%;max-width:560px;height:auto;margin:0 auto;border:0">',
       inlineImages:{wedding:inline},
       name:'Mattia & Kirsten'
     });
