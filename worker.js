@@ -39,10 +39,10 @@ function decorate(response,headers){
   h.set("X-Content-Type-Options","nosniff");h.set("Referrer-Policy","no-referrer");
   return new Response(response.body,{status:response.status,statusText:response.statusText,headers:h});
 }
-async function route(req,env){
+async function route(req,env,ctx){
   const u=new URL(req.url),path=u.pathname,method=req.method;
   if(method==="GET"&&path==="/api/health")return json({ok:true});
-  const grouped=await groupedRoutes(req,env);
+  const grouped=await groupedRoutes(req,env,ctx);
   if(grouped)return grouped;
   if(path==="/api/invite"||path==="/api/rsvp")return fail("Use the group RSVP service.",404);
   if(method==="GET"&&path==="/api/invite"){
@@ -162,7 +162,7 @@ async function route(req,env){
   return fail("Not found.",404);
 }
 export default {
-  async fetch(req,env){
+  async fetch(req,env,ctx){
     const url=new URL(req.url);
     if(["/admin","/admin/","/admin/legacy","/admin/legacy/"].includes(url.pathname)){
       return new Response(adminGroupsPage,{headers:{
@@ -176,7 +176,7 @@ export default {
     const origin=req.headers.get("Origin"),headers=cors(origin,env);
     if(origin&&origin!==url.origin&&!Object.keys(headers).length)return fail("Origin not allowed.",403);
     if(req.method==="OPTIONS")return decorate(new Response(null,{status:204}),headers);
-    try{return decorate(await route(req,env),headers);}
+    try{return decorate(await route(req,env,ctx),headers);}
     catch(err){console.error("Wedding API failed",err?.message);return decorate(fail("Unable to complete the request.",500),headers);}
   }
 };
