@@ -169,7 +169,7 @@ export default {
       return new Response(adminGroupsPage,{headers:{
         "Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store",
         "X-Content-Type-Options":"nosniff","Referrer-Policy":"no-referrer",
-        "Content-Security-Policy":"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'"
+        "Content-Security-Policy":"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' wss://"+url.host+"; base-uri 'none'; frame-ancestors 'none'"
       }});
     }
     if(!env.DB)return fail("Cloudflare D1 database binding is not configured.",503);
