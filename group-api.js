@@ -455,6 +455,9 @@ async function submit(req,env){
       statements.push(env.DB.prepare(
         "DELETE FROM rsvp_member_email_choices WHERE member_id=?"
       ).bind(m.id));
+      statements.push(env.DB.prepare(
+        "DELETE FROM rsvp_member_email_pending WHERE member_id=?"
+      ).bind(m.id));
     }
     // Keep the status timestamp stable for unchanged members. A pending
     // Gmail send can then safely persist its earlier delivery result.
@@ -549,6 +552,7 @@ async function adminPatch(req,env,id){
   // subsequent Not Attending -> Pending -> Attending transition.
   await env.DB.batch([
     env.DB.prepare("DELETE FROM rsvp_member_email_choices WHERE member_id=?").bind(id),
+    env.DB.prepare("DELETE FROM rsvp_member_email_pending WHERE member_id=?").bind(id),
     env.DB.prepare(
       "INSERT INTO rsvp_member_email_clears(member_id,cleared_at) VALUES(?,?) "+
       "ON CONFLICT(member_id) DO UPDATE SET cleared_at=excluded.cleared_at"
@@ -575,9 +579,11 @@ async function resetAll(req,env){
   ).first();
   const choices=await env.DB.prepare("SELECT COUNT(*) AS total FROM rsvp_confirmation_choices").first();
   const individualChoices=await env.DB.prepare("SELECT COUNT(*) AS total FROM rsvp_member_email_choices").first();
+  const pendingChoices=await env.DB.prepare("SELECT COUNT(*) AS total FROM rsvp_member_email_pending").first();
   const memberClears=await env.DB.prepare("SELECT COUNT(*) AS total FROM rsvp_member_email_clears").first();
   if(!Number(stale?.total||0)&&!Number(choices?.total||0)&&
-     !Number(individualChoices?.total||0)&&!Number(memberClears?.total||0))
+     !Number(individualChoices?.total||0)&&!Number(pendingChoices?.total||0)&&
+     !Number(memberClears?.total||0))
     return json({ok:true,updated:0});
   const at=new Date().toISOString();
   await env.DB.batch([
@@ -585,6 +591,7 @@ async function resetAll(req,env){
     env.DB.prepare("UPDATE rsvp_members SET rsvp_status='pending',updated_at=NULL WHERE rsvp_status!='pending' OR updated_at IS NOT NULL"),
     env.DB.prepare("DELETE FROM rsvp_confirmation_choices"),
     env.DB.prepare("DELETE FROM rsvp_member_email_choices"),
+    env.DB.prepare("DELETE FROM rsvp_member_email_pending"),
     env.DB.prepare("DELETE FROM rsvp_member_email_clears")
   ]);
   await notifyRSVPUpdate(env,"all");
