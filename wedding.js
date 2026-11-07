@@ -12,7 +12,6 @@
   document.querySelectorAll('[data-wedding-date]').forEach(n => n.textContent = 'MONDAY · 07 DECEMBER 2026');
   document.querySelectorAll('[data-wedding-address]').forEach(n => n.textContent = cfg.address || 'Mataas Na Kahoy, Lipa, Batangas, Philippines');
   document.querySelectorAll('[data-map-link]').forEach(n => n.href = cfg.mapUrl);
-  // Restored original pre-Web-Audio player (commit 87f68c7).
   const soundtrack = document.createElement('audio');
   const backupMusic = './ben-ben-araw-araw-official-music-video_DNkfYn6U.mp3';
   soundtrack.src = cfg.musicFile || backupMusic;
@@ -40,22 +39,6 @@
   window.addEventListener('load', startMusic, {once:true});
   // When audible autoplay is blocked, the first natural gesture starts music.
   ['pointerdown','keydown','touchstart'].forEach(e=>document.addEventListener(e,startMusic,{passive:true}));
-
-  // Only extend the original successful HTMLAudioElement implementation with
-  // lifecycle cleanup. Do not stop on blur; it fires without leaving the page.
-  soundtrack.addEventListener('pause',()=>{playing=false});
-  function stopMusic(){
-    try{soundtrack.pause()}catch(_error){}
-    playing=false;
-  }
-  document.addEventListener('visibilitychange',()=>{
-    if(document.hidden)stopMusic();
-    else startMusic();
-  });
-  window.addEventListener('pagehide',stopMusic);
-  window.addEventListener('pageshow',()=>{
-    if(!document.hidden)startMusic();
-  });
 
   // All guest data is queried from D1; no private guest list is embedded in GitHub Pages.
   const modal=document.createElement('div');
