@@ -455,6 +455,9 @@
       // The acknowledgement screen appears after TWO seconds, even if the
       // image upload is still underway. This never cancels the submission.
       await new Promise(resolve=>setTimeout(resolve,2000));
+      // Never show an accepted/sending message until Cloudflare has returned
+      // success. Gmail delivery itself continues independently in the Worker.
+      try{submitted=await submission;}catch(err){submitError=err;}
       if(generation!==lookupGeneration)return;
       state.busy=false;state.sendingPhase='';
       if(submitError){
