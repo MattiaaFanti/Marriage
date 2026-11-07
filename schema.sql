@@ -101,3 +101,22 @@ CREATE TABLE IF NOT EXISTS rsvp_member_email_clears (
   member_id INTEGER PRIMARY KEY,
   cleared_at TEXT NOT NULL
 );
+
+-- Individual confirmation choices. Do not overwrite an attendee's address
+-- when somebody else in their invitation changes RSVP or recipient email.
+CREATE TABLE IF NOT EXISTS rsvp_member_email_choices (
+  member_id INTEGER PRIMARY KEY REFERENCES rsvp_members(id) ON DELETE CASCADE,
+  choice TEXT NOT NULL CHECK(choice IN ('NO','EMAIL')),
+  email TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL
+);
+
+-- Accepted requests that Cloudflare is delivering through Google Apps Script.
+-- Separate from confirmed sends: queued is never represented as delivered.
+CREATE TABLE IF NOT EXISTS rsvp_member_email_requests (
+  member_id INTEGER PRIMARY KEY REFERENCES rsvp_members(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  request_hash TEXT NOT NULL,
+  status_updated_at TEXT NOT NULL,
+  queued_at INTEGER NOT NULL
+);
