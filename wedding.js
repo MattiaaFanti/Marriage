@@ -104,7 +104,7 @@
   modal.innerHTML='<section class="rsvp-dialog" role="dialog" aria-modal="true" aria-labelledby="rsvpHeading"><button class="rsvp-x" type="button" aria-label="Close">×</button><div class="rsvp-content"></div></section>';
   document.body.appendChild(modal);
   const content=modal.querySelector('.rsvp-content');
-  const state={step:'find',name:'',selectedId:null,token:'',members:[],answers:{},error:'',busy:false};
+  const state={step:'find',name:'',selectedId:null,token:'',members:[],answers:{},error:'',busy:false,confirmationEmail:''};
   const enc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const nameKey=s=>String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/\s+/g,' ');
   const validName=s=>s.length>=3&&s.length<=100&&/^[a-z]+(?:[ '-][a-z]+)*$/.test(s);
@@ -130,6 +130,8 @@
   }
 
   function countAnswers(){return state.members.filter(m=>['attending','not_attending'].includes(state.answers[m.id])).length;}
+  function attendingMembers(){return state.members.filter(m=>state.answers[m.id]==='attending');}
+  function validEmail(s){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s||'').trim())&&String(s).trim().length<=254;}
   function render(){
     let html='';
     if(state.step==='find'){
@@ -179,8 +181,20 @@
     }
     if(state.step==='done'){
       html='<p class="rsvp-kicker">MATTIA & KIRSTEN</p><h2 id="rsvpHeading">Thank you!</h2>'+
-        '<p>All responses for your invitation have been recorded.</p>'+
-        primary('Back to the invitation','close');
+        '<p>All responses for your invitation have been recorded.</p>';
+      if(attendingMembers().length){
+        html+='<form id="rsvpEmailForm" class="rsvp-email-form" novalidate>'+
+          '<p class="rsvp-email-question">Would you like to receive your invitation confirmation by e-mail?</p>'+
+          '<label for="rsvpConfirmEmail">E-mail address</label>'+
+          '<input id="rsvpConfirmEmail" type="email" autocomplete="email" inputmode="email" maxlength="254" placeholder="Enter your e-mail address" value="'+enc(state.confirmationEmail)+'"'+(state.busy?' disabled':'')+'>'+
+          error()+
+          '<div class="rsvp-done-actions">'+
+          '<button type="submit" class="rsvp-primary rsvp-email-action"'+(state.busy?' disabled':'')+'>'+(state.busy?'Sending…':'Send email - See you soon!')+'</button>'+
+          '<button type="button" class="rsvp-primary rsvp-email-action rsvp-email-skip" data-act="close"'+(state.busy?' disabled':'')+'>Skip - I don&#39;t want a confirmation e-mail</button>'+
+          '</div></form>';
+      }else{
+        html+=primary('Back to the invitation','close');
+      }
     }
     content.innerHTML=html;
     content.querySelectorAll('[data-act]').forEach(btn=>btn.addEventListener('click',()=>action(btn.dataset.act)));
@@ -191,6 +205,11 @@
     content.querySelector('#rsvpLookup')?.addEventListener('submit',e=>{e.preventDefault();action('lookup')});
     const input=content.querySelector('#rsvpName');
     if(input)bindSuggestions(input,content.querySelector('#modalNameSuggestions'),(name,id)=>open(name,id));
+    const emailInput=content.querySelector('#rsvpConfirmEmail');
+    emailInput?.addEventListener('input',()=>{state.confirmationEmail=emailInput.value;});
+    content.querySelector('#rsvpEmailForm')?.addEventListener('submit',event=>{
+      event.preventDefault();void action('sendEmail');
+    });
   }
 
   /* From the third letter, show every matching person as a separate,
@@ -329,7 +348,43 @@
     document.body.classList.add('rsvp-open');
   }
   async function action(kind,options={}){
-    if(kind==='close'){close();return;}
+    if(kind==='close'){if(!state.busy)close();return;}
+    if(kind==='sendEmail'&&!state.busy){
+      if(!attendingMembers().length){state.error='No attending guests were selected.';render();return;}
+      const email=String(content.querySelector('#rsvpConfirmEmail')?.value||state.confirmationEmail||'').trim();
+      state.confirmationEmail=email;
+      if(!validEmail(email)){
+        state.error='Please enter a valid e-mail address.';render();return;
+      }
+      if(!api||!state.token||!window.WEDDING_CONFIRMATION_IMAGE){
+        state.error='The confirmation e-mail service is not available.';render();return;
+      }
+      const generation=lookupGeneration;
+      const names=attendingMembers().map(m=>m.name);
+      state.busy=true;state.error='';render();
+      try{
+        const image=await window.WEDDING_CONFIRMATION_IMAGE.createImage(names);
+        if(generation!==lookupGeneration)return;
+        const response=await fetch(api+'/api/household/send-confirmation-email',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            household_token:state.token,email,
+            image_data_url:image,attending_names:names
+          }),
+          cache:'no-store'
+        });
+        const data=await response.json().catch(()=>({}));
+        if(generation!==lookupGeneration)return;
+        if(!response.ok)throw Error(data.error||'Could not send the confirmation e-mail.');
+        state.busy=false;close();return;
+      }catch(err){
+        if(generation!==lookupGeneration)return;
+        state.error=err.message||'Could not send the confirmation e-mail.';
+      }finally{
+        if(generation===lookupGeneration){state.busy=false;if(!modal.hidden)render();}
+      }
+      return;
+    }
     if(kind==='retrySearch'){open();return;}
     if(kind==='done'){state.step='done';render();return;}
     if(kind==='edit'){state.step='choose';render();return;}
@@ -417,7 +472,7 @@
     document.body.classList.remove('rsvp-open');
     state.step=preselected?'loading':'find';
     state.name=name;state.selectedId=id;state.token='';state.members=[];
-    state.answers={};state.error='';state.busy=false;
+    state.answers={};state.error='';state.busy=false;state.confirmationEmail='';
     if(preselected){
       // Never render a search form during a selected-guest lookup.
       // Reveal only when group choices are ready (or on a real error).
