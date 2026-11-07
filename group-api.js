@@ -491,21 +491,26 @@ async function overview(env){
       "WHEN group_code='family-assunta-jessica-andrea-2026' THEN 3 "+
       "ELSE 4 END,id"
   ).all()).results;
-  await ensureEmailChoices(env);
-  await ensureMemberEmailClears(env);
+  await ensureMemberEmailChoices(env);
   const people=(await env.DB.prepare(
     "SELECT m.id,m.group_id,m.display_name,m.role,m.rsvp_status,m.updated_at,"+
     "COALESCE(c.choice,'') AS email_choice,"+
     "CASE WHEN m.rsvp_status='pending' THEN '' "+
-    "WHEN cleared.member_id IS NOT NULL AND ("+
-    "c.updated_at IS NULL OR cleared.cleared_at >= c.updated_at) THEN '' "+
-    "WHEN c.choice='NO' THEN 'NO' "+
-    "WHEN c.choice='EMAIL' THEN c.email ELSE '' END AS email "+
+    "WHEN m.rsvp_status='not_attending' THEN CASE WHEN c.choice='NO' THEN 'NO' ELSE '' END "+
+    "WHEN c.choice='EMAIL' THEN c.email "+
+    "WHEN q.member_id IS NOT NULL AND q.queued_at>=? "+
+    "AND q.status_updated_at=COALESCE(m.updated_at,'') THEN q.email "+
+    "WHEN c.choice='NO' THEN 'NO' ELSE '' END AS email,"+
+    "CASE WHEN m.rsvp_status!='attending' THEN '' "+
+    "WHEN c.choice='EMAIL' THEN 'sent' "+
+    "WHEN q.member_id IS NOT NULL AND q.queued_at>=? "+
+    "AND q.status_updated_at=COALESCE(m.updated_at,'') THEN 'processing' "+
+    "ELSE '' END AS email_delivery_status "+
     "FROM rsvp_members m "+
-    "LEFT JOIN rsvp_confirmation_choices c ON c.group_id=m.group_id "+
-    "LEFT JOIN rsvp_member_email_clears cleared ON cleared.member_id=m.id "+
+    "LEFT JOIN rsvp_member_email_choices c ON c.member_id=m.id "+
+    "LEFT JOIN rsvp_member_email_requests q ON q.member_id=m.id "+
     "ORDER BY m.group_id,m.id"
-  ).all()).results;
+  ).bind(now()-90,now()-90).all()).results;
   // These seven guests attend virtually when they choose Attending. They
   // must not inflate the in-person Attending total; Pending and Not Attending
   // are counted normally regardless of guest name.
