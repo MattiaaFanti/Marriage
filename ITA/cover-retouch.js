@@ -62,7 +62,7 @@
         return r>114&&g>76&&b<g*.77&&g>b*1.45;
       }
       function paintRegion(x0,y0,w,h,edge=28,keepGold=false){
-        const pixels=ctx.createImageData(w,h);
+        const pixels=ctx.getImageData(x0,y0,w,h);
         for(let yy=0;yy<h;yy++){
           const absY=y0+yy;
           const fy=Math.min(1,(yy+1)/edge,(h-yy)/edge);
@@ -72,8 +72,10 @@
             const fx=Math.min(1,(xx+1)/edge,(w-xx)/edge);
             const alpha=Math.max(0,Math.min(1,fy,fx));
             const c=burgundy(absX,absY),p=(yy*w+xx)*4;
-            pixels.data[p]=c[0];pixels.data[p+1]=c[1];pixels.data[p+2]=c[2];
-            pixels.data[p+3]=Math.round(alpha*255);
+            for(let k=0;k<3;k++)
+              pixels.data[p+k]=Math.round(pixels.data[p+k]*(1-alpha)+c[k]*alpha);
+            // Preserve the original fully opaque pixels outside the lettering.
+            pixels.data[p+3]=255;
           }
         }
         ctx.putImageData(pixels,x0,y0);
@@ -88,7 +90,7 @@
       // The original approved cover removes M&K / OUR E-INVITE in the
       // burgundy gap between the children's images. Keep those narrow crops.
       function cleanCenter(x0,y0,w,h,above,below){
-        const out=ctx.createImageData(w,h);
+        const out=ctx.getImageData(x0,y0,w,h);
         for(let yy=0;yy<h;yy++){
           const f=(yy+1)/h;
           const featherY=Math.min(1,(yy+1)/15,(h-yy)/15);
@@ -97,8 +99,12 @@
             const i=(yy*w+xx)*4;
             const c0=sample(xxAbs,above),c1=sample(xxAbs,below);
             const featherX=Math.min(1,(xx+1)/17,(w-xx)/17);
-            for(let c=0;c<3;c++)out.data[i+c]=Math.round(c0[c]*(1-f)+c1[c]*f);
-            out.data[i+3]=Math.round(255*Math.max(0,Math.min(featherX,featherY)));
+            const a=Math.max(0,Math.min(featherX,featherY));
+            for(let c=0;c<3;c++){
+              const clean=c0[c]*(1-f)+c1[c]*f;
+              out.data[i+c]=Math.round(out.data[i+c]*(1-a)+clean*a);
+            }
+            out.data[i+3]=255;
           }
         }
         ctx.putImageData(out,x0,y0);
@@ -111,16 +117,18 @@
       // Work on the finished full-size PNG instead of an overlay on the
       // unshifted mobile first half (the cause of the cut across the dress).
       const quoteY=2708;
-      const bottom=ctx.createImageData(WIDTH,HEIGHT-quoteY);
+      const bottom=ctx.getImageData(0,quoteY,WIDTH,HEIGHT-quoteY);
       for(let yy=0;yy<HEIGHT-quoteY;yy++){
         const y=yy+quoteY;
         const a=sample(24,y),b=sample(2022,y);
         const vertical=Math.max(0,Math.min(1,yy/56));
         for(let x=0;x<WIDTH;x++){
           const t=x/(WIDTH-1),p=(yy*WIDTH+x)*4;
-          for(let c=0;c<3;c++)
-            bottom.data[p+c]=Math.round(a[c]*(1-t)+b[c]*t);
-          bottom.data[p+3]=Math.round(vertical*255);
+          for(let c=0;c<3;c++){
+            const clean=a[c]*(1-t)+b[c]*t;
+            bottom.data[p+c]=Math.round(bottom.data[p+c]*(1-vertical)+clean*vertical);
+          }
+          bottom.data[p+3]=255;
         }
       }
       ctx.putImageData(bottom,0,quoteY);
