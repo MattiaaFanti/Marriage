@@ -104,7 +104,7 @@
   modal.innerHTML='<section class="rsvp-dialog" role="dialog" aria-modal="true" aria-labelledby="rsvpHeading"><button class="rsvp-x" type="button" aria-label="Close">×</button><div class="rsvp-content"></div></section>';
   document.body.appendChild(modal);
   const content=modal.querySelector('.rsvp-content');
-  const state={step:'find',name:'',selectedId:null,token:'',members:[],answers:{},error:'',busy:false,confirmationEmail:'',emailChoice:'',emailTargets:[],preparedImageKey:'',preparedImage:null,sendingPhase:''};
+  const state={step:'find',name:'',selectedId:null,token:'',members:[],answers:{},error:'',busy:false,confirmationEmail:'',emailChoice:'',emailTargets:[],emailCardSeats:null,preparedImageKey:'',preparedImage:null,sendingPhase:''};
   const enc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const nameKey=s=>String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/\s+/g,' ');
   const validName=s=>s.length>=3&&s.length<=100&&/^[a-z]+(?:[ '-][a-z]+)*$/.test(s);
@@ -414,7 +414,8 @@
       const recipients=emailRecipients();
       const names=recipients.map(m=>m.name);
       const memberIds=recipients.map(m=>Number(m.id));
-      const imageKey=recipients.map(m=>Number(m.id)+':'+m.name).join('|');
+      const seatCount=state.emailCardSeats??recipients.length;
+      const imageKey=recipients.map(m=>Number(m.id)+':'+m.name).join('|')+'|seats:'+seatCount;
       // Prepare the image and submit it immediately; the popup opens only
       // after Cloudflare acknowledges responsibility for the queued email.
       state.busy=true;state.error='';
@@ -423,7 +424,7 @@
       const submission=(async()=>{
         const prepared=state.preparedImageKey===imageKey&&state.preparedImage?
           await state.preparedImage:null;
-        const image=prepared||await window.WEDDING_CONFIRMATION_IMAGE.createImage(names);
+        const image=prepared||await window.WEDDING_CONFIRMATION_IMAGE.createImage(names,seatCount);
         const response=await fetch(api+'/api/household/send-confirmation-email',{
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
@@ -538,12 +539,17 @@
         state.emailTargets=Array.isArray(data.email_targets)?
           data.email_targets.map(Number).filter(Number.isSafeInteger):
           attendingMembers().map(m=>Number(m.id));
+        // The server sets this only for an additional confirmation after
+        // Not Attending -> Attending with another person already attending.
+        state.emailCardSeats=Number.isSafeInteger(data.email_card_seats)?
+          data.email_card_seats:null;
         state.preparedImageKey='';state.preparedImage=null;
         const recipients=emailRecipients();
         if(recipients.length&&window.WEDDING_CONFIRMATION_IMAGE){
-          state.preparedImageKey=recipients.map(m=>Number(m.id)+':'+m.name).join('|');
+          const seatCount=state.emailCardSeats??recipients.length;
+          state.preparedImageKey=recipients.map(m=>Number(m.id)+':'+m.name).join('|')+'|seats:'+seatCount;
           state.preparedImage=window.WEDDING_CONFIRMATION_IMAGE
-            .createImage(recipients.map(m=>m.name))
+            .createImage(recipients.map(m=>m.name),seatCount)
             .catch(err=>{console.warn("Wedding image preparation",err?.message||err);return null;});
         }
         // No dress code screen if nobody in the group will attend.
@@ -562,7 +568,7 @@
     document.body.classList.remove('rsvp-open');
     state.step=preselected?'loading':'find';
     state.name=name;state.selectedId=id;state.token='';state.members=[];
-    state.answers={};state.error='';state.busy=false;state.confirmationEmail='';state.emailChoice='';state.emailTargets=[];state.preparedImageKey='';state.preparedImage=null;state.sendingPhase='';
+    state.answers={};state.error='';state.busy=false;state.confirmationEmail='';state.emailChoice='';state.emailTargets=[];state.emailCardSeats=null;state.preparedImageKey='';state.preparedImage=null;state.sendingPhase='';
     if(preselected){
       // Never render a search form during a selected-guest lookup.
       // Reveal only when group choices are ready (or on a real error).
