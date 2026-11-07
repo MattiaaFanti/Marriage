@@ -2,7 +2,7 @@
 layout: null
 ---
 <!doctype html>
-<html lang="it" style="background-color:var(--burgundy,#63000a);color-scheme:light">
+<html lang="it" class="ita-cover-pending" style="background-color:var(--burgundy,#63000a);color-scheme:light">
 <head>
 <meta charset="utf-8">
 <meta name="color-scheme" content="light">
@@ -71,6 +71,7 @@ body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
 .cover-stage{position:relative;width:min(100vw,66.6667svh,820px);aspect-ratio:2/3;flex:none;container-type:inline-size;overflow:hidden}
 .cover-art{display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:fill;image-rendering:auto}
 .cover-art-lower{display:none}
+.ita-cover-pending .cover-art{opacity:0}
 /* The new slide1.webp image remains the full illustration. The RSVP input and search button are separate HTML controls above it. */
 .cover-search{position:absolute;z-index:10;left:6.45%;top:33.35%;width:87.1%;height:6.45%;display:flex;align-items:stretch;gap:0;margin:0;padding:.8cqw;background:linear-gradient(90deg,#fff0e7,#f9e8e3);border:1px solid #fff7f0;border-radius:2.3cqw;box-shadow:0 .9cqw 1.5cqw #3d001842}
 .cover-search input{display:block;flex:1;min-width:0;width:0;border:0;background:transparent;outline:0;color:#583e43;padding:0 2cqw;font:400 clamp(12px,2.85cqw,24px)/1.2 'DM Sans',sans-serif}
@@ -351,7 +352,7 @@ body:not(.splash-dismissed) .wedding-audio-prompt:not([hidden]){
 <script defer src="./confirmation-image.js?v=ita-1"></script>
 <script defer src="./i18n.js?v=ita-1"></script>
 <script defer src="./wedding.js?v=ita-1"></script>
-<script defer src="./cover-retouch.js?v=ita-cover-clean-v2"></script>
+<script defer src="./cover-retouch.js?v=ita-cover-composite-v3"></script>
 </head>
 <body style="background-color:var(--burgundy,#63000a)">
 <div class="splash" id="opening" aria-label="Schermata iniziale" aria-hidden="false">
