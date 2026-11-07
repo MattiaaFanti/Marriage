@@ -110,21 +110,54 @@
   // Only the lettered regions are painted. Photos, gold frame, ribbon
   // details and the original 906px-wide source image are never rescaled.
   function overlayBurgundy(ctx,x,y,w,h,sampleX=450,sampleY=255){
-    const px=ctx.getImageData(sampleX,sampleY,1,1).data;
-    const old=ctx.getImageData(x,y,w,h);
-    for(let yy=0;yy<h;yy++){
-      const fadeY=Math.min(1,(yy+1)/10,(h-yy)/10);
-      for(let xx=0;xx<w;xx++){
-        const fadeX=Math.min(1,(xx+1)/14,(w-xx)/14);
-        const alpha=Math.max(0,Math.min(fadeX,fadeY));
-        const i=(yy*w+xx)*4;
-        // A small deterministic variation avoids a flat rectangular patch.
-        // The original pixels remain unchanged outside the feathered region.
-        for(let c=0;c<3;c++)
-          old.data[i+c]=Math.round(old.data[i+c]*(1-alpha)+px[c]*alpha);
+    // Inpaint only bright cream typography. Reuse nearby original source
+    // burgundy instead of painting a flat rectangle that would dent the
+    // background's gradient or its JPEG texture.
+    const img=ctx.getImageData(x,y,w,h),data=img.data,n=w*h;
+    const mask=new Uint8Array(n);
+    for(let i=0;i<n;i++){
+      const p=i*4,r=data[p],g=data[p+1],b=data[p+2];
+      if(r>128&&g>113&&b>96&&r+g+b>400&&
+         g<r+25&&b<g+52&&b>g*.63)mask[i]=1;
+    }
+    let expanded=mask;
+    for(let pass=0;pass<3;pass++){
+      const next=expanded.slice();
+      for(let yy=1;yy<h-1;yy++){
+        for(let xx=1;xx<w-1;xx++){
+          const k=yy*w+xx;
+          if(!expanded[k])continue;
+          for(let dy=-1;dy<=1;dy++)
+            for(let dx=-1;dx<=1;dx++)next[k+dy*w+dx]=1;
+        }
+      }
+      expanded=next;
+    }
+    const nearest=new Int32Array(n);nearest.fill(-1);
+    const queue=new Int32Array(n);let tail=0;
+    for(let i=0;i<n;i++){
+      const p=i*4,r=data[p],g=data[p+1],b=data[p+2];
+      if(!expanded[i]&&r>35&&r>g*1.5&&r>b*1.1&&g<88&&b<105){
+        nearest[i]=i;queue[tail++]=i;
       }
     }
-    ctx.putImageData(old,x,y);
+    for(let head=0;head<tail;head++){
+      const k=queue[head],xx=k%w;
+      const near=[xx?k-1:-1,xx<w-1?k+1:-1,k>=w?k-w:-1,k<n-w?k+w:-1];
+      for(const j of near){
+        if(j<0||nearest[j]!==-1)continue;
+        nearest[j]=nearest[k];queue[tail++]=j;
+      }
+    }
+    const fallback=ctx.getImageData(sampleX,sampleY,1,1).data;
+    for(let i=0;i<n;i++){
+      if(!expanded[i])continue;
+      const p=i*4,source=nearest[i],q=source*4;
+      data[p]=source<0?fallback[0]:data[q];
+      data[p+1]=source<0?fallback[1]:data[q+1];
+      data[p+2]=source<0?fallback[2]:data[q+2];
+    }
+    ctx.putImageData(img,x,y);
   }
   function centeredItalian(ctx,text,y,size,options={}){
     ctx.save();
