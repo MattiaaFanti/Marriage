@@ -4,7 +4,7 @@ The invitation email is sent only with Gmail via Google Apps Script. No paid ema
 
 ## Current behavior
 
-- A confirmed RSVP with one or more attending guests offers Send email or Skip.
+- A confirmed RSVP offers Send email or Skip only when one or more **Attending** guests still need an individual confirmation. A previously confirmed guest is not included in someone else's subsequent email.
 - The Send button shows an animated spinner while the site prepares and uploads the image.
 - Cloudflare validates the RSVP and starts sending the email using **`ctx.waitUntil()`**. The background request is owned by the Worker, so it is not canceled when the guest presses **OK**, closes the browser, or navigates away **after the Worker has accepted the request**.
 - **Within approximately 2 seconds** of clicking Send, the modal switches to **“Your email is on its way!”** while the image upload / submission continues independently of the popup. The message means processing is underway, **not** that delivery is already complete. The interface shows **“Email sent successfully!”** only when the server actually reports an already-completed delivery.
@@ -14,7 +14,7 @@ The invitation email is sent only with Gmail via Google Apps Script. No paid ema
 - The card includes the full reception address: **Bahay Baluk Baluk Restaurant, Maatas Na Kahoy, Lipa City, Batangas**.
 - The email subject is **Save the date! - Your Wedding Confirmation**
 - The recipient sees the inline image in the email body, without a signature or extra text.
-- The group-wide Email admin column displays NO for opted-out groups, is blank for Pending, and shows the complete shared email address after sending.
+- The admin Email column now shows **each person's own address** from `rsvp_member_email_choices`. People who already received confirmation keep their original address if another member later confirms with a different email. Pending rows are blank; an explicit Skip can display NO.
 
 ## Source artwork
 
@@ -48,14 +48,16 @@ The `/admin` dashboard opens a hibernatable WebSocket through Cloudflare's SQLit
 
 Cloudflare deployment uses the `RSVP_LIVE` Durable Object binding and the `rsvp-live-sqlite-v1` SQLite migration already declared in `wrangler.toml`. No extra secrets are required. The selected configuration is available on Cloudflare Workers Free and Paid plans.
 
-## Updating manual RSVP statuses
+## Independent member emails and RSVP changes
 
-- A manual status change to **any** guest clears the email **only on that guest's row**. The addresses of the other Attending guests remain unchanged.
-- The per-guest clear is stored in D1 (`rsvp_member_email_clears`), and is retained through manual `Not Attending → Pending (Reset) → Attending` changes. An old group address will not reappear automatically.
-- The first deployment automatically repairs any previously edited guest whose old email is still visible after an admin change.
-- The group preference is set to NO if everyone is manually marked Not Attending; an individual manually edited row nevertheless stays blank. Guests with no manual email clear still show NO where appropriate.
-- A **new RSVP submitted by the guest** clears the old email choice and per-person clear markers. The email becomes visible again only after sending and successful acceptance of a **new** confirmation.
-- Reset All clears both group email preferences and the per-guest clear markers.
+- The first Worker invocation migrates any surviving legacy group email into **each already-Attending member's own record**. Manually cleared addresses are excluded. Any group address already overwritten before this deployment cannot be reconstructed from the old group record.
+- **Example:** Person A Attending receives confirmation at `a@example.com`; Person B was Not Attending. When Person B later selects Attending, Person A keeps `a@example.com` and the invitation only asks for Person B's new address (e.g. `b@example.com`).
+- The personalized PNG generated for this second send names only the members still awaiting confirmation. Existing confirmations are never sent again simply because another household member changes their mind.
+- When the admin manually changes a member's RSVP status, only that member's saved email is cleared. The emails of other group members are unaffected and do not reappear in the edited person's row after a subsequent reset and new Attending selection.
+- Guest-submitted RSVPs also preserve emails for members whose Attending status did not change. An individual who changes to Not Attending loses only their own previously saved address.
+- Skipping the email saves NO only for members still awaiting confirmation; it does not erase prior confirmations.
+- **Reset All** clears both old group email choices and the new individual email records.
+- The new D1 table `rsvp_member_email_choices` is created automatically without requiring a manual SQL migration. Existing email records are preserved wherever the old database still contains them.
 
 ## Diagnose email timing
 
