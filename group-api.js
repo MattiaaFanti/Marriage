@@ -39,50 +39,125 @@ async function parseBody(req){
   if(raw.length>12000)return null;
   try{return JSON.parse(raw||"{}")}catch{return null}
 }
-// Email preferences are stored per invitation group, not per guest.
-// Owner-requested public RSVP dashboard displays the complete address.
+// Legacy group preferences are read once to migrate existing successful
+// confirmations. All new choices belong to individual RSVP members.
 async function ensureEmailChoices(env){
   await env.DB.prepare(
     "CREATE TABLE IF NOT EXISTS rsvp_confirmation_choices ("+
-    "group_id INTEGER PRIMARY KEY, choice TEXT NOT NULL CHECK(choice IN ('NO','EMAIL')),"+
-    "email TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL)"
+    "group_id INTEGER PRIMARY KEY,choice TEXT NOT NULL CHECK(choice IN ('NO','EMAIL')),"+
+    "email TEXT NOT NULL DEFAULT '',updated_at TEXT NOT NULL)"
   ).run();
 }
-// A manual admin edit clears the visible email only for that individual.
-// The shared group email remains available to the other guests.
-let memberEmailClearsReady=false;
-async function ensureMemberEmailClears(env){
-  if(memberEmailClearsReady)return;
-  // Reading or refreshing the dashboard must NEVER insert or alter email
-  // clear markers. The old automatic event-history backfill did exactly
-  // that, making existing saved addresses vanish on Refresh.
-  await env.DB.prepare(
-    "CREATE TABLE IF NOT EXISTS rsvp_member_email_clears ("+
-    "member_id INTEGER PRIMARY KEY, cleared_at TEXT NOT NULL)"
-  ).run();
-  memberEmailClearsReady=true;
+let memberEmailReady=false,memberEmailInit=null;
+async function ensureMemberEmailChoices(env){
+  if(memberEmailReady)return;
+  if(memberEmailInit)return memberEmailInit;
+  memberEmailInit=(async()=>{
+    await ensureEmailChoices(env);
+    await env.DB.prepare(
+      "CREATE TABLE IF NOT EXISTS rsvp_member_email_clears ("+
+      "member_id INTEGER PRIMARY KEY,cleared_at TEXT NOT NULL)"
+    ).run();
+    // Compatible with the tables left by earlier Worker deployments.
+    await env.DB.prepare(
+      "CREATE TABLE IF NOT EXISTS rsvp_member_email_choices ("+
+      "member_id INTEGER PRIMARY KEY REFERENCES rsvp_members(id) ON DELETE CASCADE,"+
+      "choice TEXT NOT NULL CHECK(choice IN ('NO','EMAIL')),"+
+      "email TEXT NOT NULL DEFAULT '',updated_at TEXT NOT NULL)"
+    ).run();
+    await env.DB.prepare(
+      "CREATE TABLE IF NOT EXISTS rsvp_member_email_requests ("+
+      "member_id INTEGER PRIMARY KEY REFERENCES rsvp_members(id) ON DELETE CASCADE,"+
+      "email TEXT NOT NULL,request_hash TEXT NOT NULL,"+
+      "status_updated_at TEXT NOT NULL,queued_at INTEGER NOT NULL)"
+    ).run();
+    await env.DB.prepare(
+      "CREATE TABLE IF NOT EXISTS rsvp_data_migrations ("+
+      "name TEXT PRIMARY KEY,applied_at TEXT NOT NULL)"
+    ).run();
+    const version="wedding-member-emails-safe-v3-2026-11-07";
+    const migrated=await env.DB.prepare(
+      "SELECT name FROM rsvp_data_migrations WHERE name=?"
+    ).bind(version).first();
+    if(!migrated){
+      await env.DB.batch([
+        // Earlier code could have copied the shared address to someone who
+        // became Attending AFTER that email was originally sent. Remove
+        // only those provably stale copied records.
+        env.DB.prepare(
+          "DELETE FROM rsvp_member_email_choices WHERE member_id IN ("+
+          "SELECT m.id FROM rsvp_members m "+
+          "JOIN rsvp_confirmation_choices g ON g.group_id=m.group_id "+
+          "JOIN rsvp_member_email_choices c ON c.member_id=m.id "+
+          "WHERE c.choice='EMAIL' AND c.email=g.email "+
+          "AND c.updated_at=g.updated_at AND m.updated_at>g.updated_at)"
+        ),
+        // Copy the old shared address ONLY for people who were already
+        // Attending before its recorded delivery, never new attendees.
+        env.DB.prepare(
+          "INSERT OR IGNORE INTO rsvp_member_email_choices(member_id,choice,email,updated_at) "+
+          "SELECT m.id,'EMAIL',g.email,g.updated_at FROM rsvp_members m "+
+          "JOIN rsvp_confirmation_choices g ON g.group_id=m.group_id "+
+          "LEFT JOIN rsvp_member_email_clears cleared ON cleared.member_id=m.id "+
+          "WHERE g.choice='EMAIL' AND g.email!='' AND m.rsvp_status='attending' "+
+          "AND COALESCE(m.updated_at,'')<=g.updated_at "+
+          "AND (cleared.member_id IS NULL OR cleared.cleared_at<g.updated_at)"
+        ),
+        env.DB.prepare(
+          "INSERT OR IGNORE INTO rsvp_data_migrations(name,applied_at) VALUES(?,?)"
+        ).bind(version,new Date().toISOString())
+      ]);
+    }
+    memberEmailReady=true;
+  })().finally(()=>{memberEmailInit=null});
+  return memberEmailInit;
 }
-async function saveEmailChoice(env,groupId,choice,email=''){
-  await ensureEmailChoices(env);
-  await env.DB.prepare(
-    "INSERT INTO rsvp_confirmation_choices(group_id,choice,email,updated_at) VALUES(?,?,?,?) "+
-    "ON CONFLICT(group_id) DO UPDATE SET choice=excluded.choice,email=excluded.email,updated_at=excluded.updated_at"
-  ).bind(groupId,choice,email,new Date().toISOString()).run();
+async function memberEmailRecords(env,groupId){
+  await ensureMemberEmailChoices(env);
+  const records=await env.DB.prepare(
+    "SELECT m.id,m.group_id,m.display_name,m.role,m.rsvp_status,m.updated_at,"+
+    "COALESCE(c.choice,'') AS saved_choice,"+
+    "CASE WHEN p.member_id IS NOT NULL AND p.queued_at>=? "+
+    "AND p.status_updated_at=COALESCE(m.updated_at,'') THEN p.email ELSE '' END AS processing_email,"+
+    "CASE WHEN p.member_id IS NOT NULL AND p.queued_at>=? "+
+    "AND p.status_updated_at=COALESCE(m.updated_at,'') THEN 1 ELSE 0 END AS processing "+
+    "FROM rsvp_members m "+
+    "LEFT JOIN rsvp_member_email_choices c ON c.member_id=m.id "+
+    "LEFT JOIN rsvp_member_email_requests p ON p.member_id=m.id "+
+    "WHERE m.group_id=? ORDER BY m.id"
+  ).bind(now()-90,now()-90,groupId).all();
+  return records.results||[];
+}
+function unsentAttendees(members){
+  return members.filter(m=>m.rsvp_status==='attending'&&
+    m.saved_choice!=='EMAIL'&&!Number(m.processing));
+}
+async function markSkipped(env,members){
+  if(!members.length)return;
+  const at=new Date().toISOString();
+  await env.DB.batch(members.map(m=>env.DB.prepare(
+    "INSERT INTO rsvp_member_email_choices(member_id,choice,email,updated_at) "+
+    "VALUES(?,'NO','',?) ON CONFLICT(member_id) DO UPDATE SET "+
+    "choice='NO',email='',updated_at=excluded.updated_at "+
+    "WHERE rsvp_member_email_choices.choice!='EMAIL'"
+  ).bind(m.id,at)));
   await notifyRSVPUpdate(env,"guests");
 }
 async function skipConfirmationEmail(req,env){
-  const body=await parseBody(req);
-  const groupId=await validateToken(body?.household_token,env);
-  if(!groupId)return error('Your invitation session has expired. Search your name again.',403);
-  const members=await membersOf(groupId,env);
+  const body=await parseBody(req),groupId=await validateToken(body?.household_token,env);
+  if(!groupId)return error("Your invitation session has expired. Search your name again.",403);
+  const members=await memberEmailRecords(env,groupId);
   if(!members.length||members.some(m=>m.rsvp_status==='pending'))
-    return error('Please confirm all guests before skipping the email.',409);
-  await saveEmailChoice(env,groupId,'NO');
+    return error("Please confirm all guests before skipping the email.",409);
+  await markSkipped(env,unsentAttendees(members));
   return json({ok:true,choice:'NO'});
 }
 const publicMember=m=>({id:m.id,name:m.display_name,role:m.role,status:m.rsvp_status});
 async function membersOf(groupId,env){
-  return (await env.DB.prepare("SELECT id,display_name,role,rsvp_status,updated_at FROM rsvp_members WHERE group_id=? ORDER BY id").bind(groupId).all()).results;
+  return (await env.DB.prepare(
+    "SELECT id,group_id,display_name,role,rsvp_status,updated_at "+
+    "FROM rsvp_members WHERE group_id=? ORDER BY id"
+  ).bind(groupId).all()).results||[];
 }
 async function throttle(req,env,scope="guestlookup",limit=25){
   const ip=req.headers.get("CF-Connecting-IP")||"unknown";
