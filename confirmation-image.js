@@ -129,7 +129,7 @@
       ['CEREMONY','San Jose New Municipal Hall — Office of the Mayor'],
       ['DATE','07 December 2026'],
       ['TIME','Monday · 3:00 PM'],
-      ['RECEPTION','Bahay Baluk Baluk Restaurant'],
+      ['RECEPTION','Bahay Baluk Baluk Restaurant,'],
       ['RECEPTION TIME','6:00 PM onwards'],
       ['DRESS CODE','Semi-formal · Shades of Red to Burgundy']
     ];
@@ -138,7 +138,7 @@
     rows.forEach(([label,value],i)=>{
       type(c,label,164,yy[i],21,{weight:'600',align:'left'});
       if(i===3){
-        type(c,'Bahay Baluk Baluk Restaurant',365,1000,21,{italic:true,align:'left'});
+        type(c,'Bahay Baluk Baluk Restaurant,',365,1000,21,{italic:true,align:'left'});
         type(c,'Maatas Na Kahoy, Lipa City, Batangas',365,1024,20,{italic:true,align:'left'});
       }else{
         let sz=23;while(sz>17&&measure(c,value,sz,{italic:true})>445)sz--;
@@ -195,7 +195,7 @@
       while(sz>17&&measure(c,label,sz,{italic:true})>440)sz--;
       type(c,label,371,yy+offset,sz,{align:'left',italic:true});
     };
-    value('Bahay Baluk Baluk Restaurant',987,23);
+    value('Bahay Baluk Baluk Restaurant,',987,23);
     value('Maatas Na Kahoy, Lipa City, Batangas',1010,21);
     value('6:00 PM onwards',1036,23);
     value('Semi-formal · Shades of Red to Burgundy',1072,22);
