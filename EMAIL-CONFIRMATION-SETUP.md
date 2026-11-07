@@ -7,7 +7,7 @@ The invitation email is sent only with Gmail via Google Apps Script. No paid ema
 - A confirmed RSVP with one or more attending guests offers Send email or Skip.
 - The Send button shows an animated spinner while the site prepares and uploads the image.
 - Cloudflare validates the RSVP and starts sending the email using **`ctx.waitUntil()`**. The background request is owned by the Worker, so it is not canceled when the guest presses **OK**, closes the browser, or navigates away **after the Worker has accepted the request**.
-- The acknowledgment modal appears at least **2 seconds** after clicking Send: **“Your email is on its way!”**. This indicates acceptance/processing, not a false claim of completed delivery. A confirmed already-sent request may show **“Email sent successfully!”**.
+- **Within approximately 2 seconds** of clicking Send, the modal switches to **“Your email is on its way!”** while the image upload / submission continues independently of the popup. The message means processing is underway, **not** that delivery is already complete. The interface shows **“Email sent successfully!”** only when the server actually reports an already-completed delivery.
 - Failed submissions appear inside the modal; the screen does not close on failure. Background Gmail errors are logged in Worker logs and clear the pending attempt so that it can be retried.
 - Cloudflare's background work has a **30-second `waitUntil()` window after the response**. Typical Gmail delivery takes only a few seconds; longer failures may need a separate Queue integration.
 - The confirmation card is a **lossless PNG**. The middle has chair icons, `X seat/seats reserved for you`, and only attending guests' names, in the site's Cormorant Garamond font.
@@ -41,3 +41,10 @@ The original second Thank You artwork from the conversation is now committed at 
 
 Apps Script documentation: https://developers.google.com/apps-script/reference/mail/mail-app
 Apps Script quotas: https://developers.google.com/apps-script/guides/services/quotas
+
+## Updating manual RSVP statuses
+
+- A manual change to one member does **not** clear the group's saved confirmation address as long as another member is still Attending.
+- A Pending member displays a blank Email column, while the rest of the group retains its shared address.
+- When everyone has been changed to Not Attending, the group Email value becomes **NO**.
+- When nobody attends but some members are still Pending, the previous email choice is cleared. Previously deleted email addresses cannot be recovered from the rate-limit hash.
