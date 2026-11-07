@@ -570,19 +570,24 @@ async function resetAll(req,env){
   const count=await env.DB.prepare(
     "SELECT COUNT(*) AS total FROM rsvp_members WHERE rsvp_status!='pending'"
   ).first();
-  await ensureEmailChoices(env);
-  await ensureMemberEmailClears(env);
+  await ensureMemberEmailChoices(env);
   const stale=await env.DB.prepare(
     "SELECT COUNT(*) AS total FROM rsvp_members WHERE rsvp_status!='pending' OR updated_at IS NOT NULL"
   ).first();
   const choices=await env.DB.prepare("SELECT COUNT(*) AS total FROM rsvp_confirmation_choices").first();
+  const individuals=await env.DB.prepare("SELECT COUNT(*) AS total FROM rsvp_member_email_choices").first();
+  const queued=await env.DB.prepare("SELECT COUNT(*) AS total FROM rsvp_member_email_requests").first();
   const memberClears=await env.DB.prepare("SELECT COUNT(*) AS total FROM rsvp_member_email_clears").first();
-  if(!Number(stale?.total||0)&&!Number(choices?.total||0)&&!Number(memberClears?.total||0))return json({ok:true,updated:0});
+  if(!Number(stale?.total||0)&&!Number(choices?.total||0)&&
+    !Number(individuals?.total||0)&&!Number(queued?.total||0)&&
+    !Number(memberClears?.total||0))return json({ok:true,updated:0});
   const at=new Date().toISOString();
   await env.DB.batch([
     env.DB.prepare("INSERT INTO rsvp_member_events(member_id,previous_status,status,source,received_at) SELECT id,rsvp_status,'pending','admin',? FROM rsvp_members WHERE rsvp_status!='pending'").bind(at),
     env.DB.prepare("UPDATE rsvp_members SET rsvp_status='pending',updated_at=NULL WHERE rsvp_status!='pending' OR updated_at IS NOT NULL"),
     env.DB.prepare("DELETE FROM rsvp_confirmation_choices"),
+    env.DB.prepare("DELETE FROM rsvp_member_email_choices"),
+    env.DB.prepare("DELETE FROM rsvp_member_email_requests"),
     env.DB.prepare("DELETE FROM rsvp_member_email_clears")
   ]);
   await notifyRSVPUpdate(env,"all");
@@ -628,14 +633,20 @@ function csvCell(v){
   return '"'+s.replace(/"/g,'""')+'"';
 }
 async function exportCsv(env){
-  await ensureEmailChoices(env);
+  await ensureMemberEmailChoices(env);
   const rows=(await env.DB.prepare(
     "SELECT g.group_code,m.display_name,m.role,m.rsvp_status,m.updated_at,"+
-    "CASE WHEN m.rsvp_status='pending' THEN '' ELSE COALESCE(c.choice,'') END AS email_choice "+
+    "CASE WHEN m.rsvp_status='pending' THEN '' ELSE COALESCE(c.choice,'') END AS email_choice,"+
+    "CASE WHEN m.rsvp_status='pending' THEN '' "+
+    "WHEN c.choice='EMAIL' THEN c.email "+
+    "WHEN q.member_id IS NOT NULL AND q.queued_at>=? "+
+    "AND q.status_updated_at=COALESCE(m.updated_at,'') THEN q.email ELSE '' END AS email "+
     "FROM rsvp_members m JOIN rsvp_groups g ON g.id=m.group_id "+
-    "LEFT JOIN rsvp_confirmation_choices c ON c.group_id=g.id ORDER BY g.id,m.id"
-  ).all()).results;
-  const cols=["group_code","display_name","role","rsvp_status","email_choice","updated_at"];
+    "LEFT JOIN rsvp_member_email_choices c ON c.member_id=m.id "+
+    "LEFT JOIN rsvp_member_email_requests q ON q.member_id=m.id "+
+    "ORDER BY g.id,m.id"
+  ).bind(now()-90).all()).results;
+  const cols=["group_code","display_name","role","rsvp_status","email_choice","email","updated_at"];
   const text="\uFEFF"+[cols.join(","),...rows.map(row=>cols.map(k=>csvCell(row[k])).join(","))].join("\r\n");
   return new Response(text,{headers:{"Content-Type":"text/csv; charset=utf-8","Content-Disposition":'attachment; filename="wedding-group-rsvp.csv"',"Cache-Control":"no-store"}});
 }
