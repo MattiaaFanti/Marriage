@@ -355,11 +355,9 @@ async function sendConfirmationEmail(req,env,ctx){
       "DELETE FROM rsvp_confirmation_deliveries WHERE group_id=? AND email_hash=?"
     ).bind(groupId,emailHash).run();
   }
-  const count=await env.DB.prepare(
-    "SELECT COUNT(*) AS n FROM rsvp_confirmation_deliveries WHERE group_id=? AND created_at>=?"
-  ).bind(groupId,at-86400).first();
-  if(Number(count?.n||0)>=4)
-    return error("The confirmation e-mail limit for this invitation has been reached.",429);
+  // No per-invitation daily quota. A household can contain several people
+  // who submit separate emails or legitimately need to retry a failed send.
+  // Existing IP throttling and recipient-level in-flight deduplication remain.
   const claimed=await env.DB.prepare(
     "INSERT OR IGNORE INTO rsvp_confirmation_deliveries(group_id,email_hash,created_at) VALUES(?,?,?)"
   ).bind(groupId,emailHash,at).run();
