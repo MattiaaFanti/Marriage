@@ -104,7 +104,7 @@
   modal.innerHTML='<section class="rsvp-dialog" role="dialog" aria-modal="true" aria-labelledby="rsvpHeading"><button class="rsvp-x" type="button" aria-label="Close">×</button><div class="rsvp-content"></div></section>';
   document.body.appendChild(modal);
   const content=modal.querySelector('.rsvp-content');
-  const state={step:'find',name:'',selectedId:null,token:'',members:[],answers:{},error:'',busy:false,confirmationEmail:'',emailChoice:'',emailTargets:[],sendingPhase:''};
+  const state={step:'find',name:'',selectedId:null,token:'',members:[],answers:{},error:'',busy:false,confirmationEmail:'',emailChoice:'',emailTargets:[],preparedEmailKey:'',preparedEmailPromise:null,sendingPhase:''};
   const enc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const nameKey=s=>String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/\s+/g,' ');
   const validName=s=>s.length>=3&&s.length<=100&&/^[a-z]+(?:[ '-][a-z]+)*$/.test(s);
@@ -412,13 +412,18 @@
       const recipients=emailRecipients();
       const names=recipients.map(m=>m.name);
       const memberIds=recipients.map(m=>Number(m.id));
+      const imageKey=recipients.map(m=>m.id+':'+m.name).join('|');
       // Initiate image generation and the Cloudflare request immediately.
       // They are independent of the popup's two-second display timer.
       state.busy=true;state.error='';
       state.sendingPhase='Preparing your confirmation email…';render();
       let submitted=null,submitError=null;
       const submission=(async()=>{
-        const image=await window.WEDDING_CONFIRMATION_IMAGE.createImage(names);
+        // Pre-render during the dress-code screen so uploading the PNG
+        // usually begins immediately when Send is clicked.
+        const readyImage=state.preparedEmailKey===imageKey&&state.preparedEmailPromise?
+          await state.preparedEmailPromise:null;
+        const image=readyImage||await window.WEDDING_CONFIRMATION_IMAGE.createImage(names);
         const response=await fetch(api+'/api/household/send-confirmation-email',{
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
@@ -538,6 +543,17 @@
         // No dress code screen if nobody in the group will attend.
         state.emailTargets=Array.isArray(data.email_targets)?
           data.email_targets.map(Number).filter(Number.isSafeInteger):[];
+        state.preparedEmailKey='';
+        state.preparedEmailPromise=null;
+        const recipients=emailRecipients();
+        if(recipients.length&&window.WEDDING_CONFIRMATION_IMAGE){
+          state.preparedEmailKey=recipients.map(m=>m.id+':'+m.name).join('|');
+          state.preparedEmailPromise=window.WEDDING_CONFIRMATION_IMAGE
+            .createImage(recipients.map(m=>m.name)).catch(err=>{
+              console.warn('Wedding confirmation pre-render failed:',err?.message||err);
+              return null;
+            });
+        }
         const hasAttendees=state.members.some(m=>state.answers[m.id]==='attending');
         state.step=hasAttendees?'dress':'regret';state.error='';
       }catch(e){state.error=e.message||'Could not save. Please retry.';}
@@ -553,7 +569,7 @@
     document.body.classList.remove('rsvp-open');
     state.step=preselected?'loading':'find';
     state.name=name;state.selectedId=id;state.token='';state.members=[];
-    state.answers={};state.error='';state.busy=false;state.confirmationEmail='';state.emailChoice='';state.emailTargets=[];state.sendingPhase='';
+    state.answers={};state.error='';state.busy=false;state.confirmationEmail='';state.emailChoice='';state.emailTargets=[];state.preparedEmailKey='';state.preparedEmailPromise=null;state.sendingPhase='';
     if(preselected){
       // Never render a search form during a selected-guest lookup.
       // Reveal only when group choices are ready (or on a real error).
