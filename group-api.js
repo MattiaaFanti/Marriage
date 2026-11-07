@@ -52,37 +52,13 @@ async function ensureEmailChoices(env){
 let memberEmailClearsReady=false;
 async function ensureMemberEmailClears(env){
   if(memberEmailClearsReady)return;
+  // Reading or refreshing the dashboard must NEVER insert or alter email
+  // clear markers. The old automatic event-history backfill did exactly
+  // that, making existing saved addresses vanish on Refresh.
   await env.DB.prepare(
     "CREATE TABLE IF NOT EXISTS rsvp_member_email_clears ("+
     "member_id INTEGER PRIMARY KEY, cleared_at TEXT NOT NULL)"
   ).run();
-  // Recover manually edited guests whose old emails were still showing
-  // before per-member clearing existed. Run this repair exactly once.
-  const version="wedding-member-email-manual-edit-backfill-v1";
-  await env.DB.prepare(
-    "CREATE TABLE IF NOT EXISTS rsvp_data_migrations ("+
-    "name TEXT PRIMARY KEY,applied_at TEXT NOT NULL)"
-  ).run();
-  const applied=await env.DB.prepare(
-    "SELECT name FROM rsvp_data_migrations WHERE name=?"
-  ).bind(version).first();
-  if(!applied){
-    await env.DB.batch([
-      env.DB.prepare(
-        "INSERT OR IGNORE INTO rsvp_member_email_clears(member_id,cleared_at) "+
-        "SELECT e.member_id,MAX(e.received_at) FROM rsvp_member_events e "+
-        "JOIN rsvp_members m ON m.id=e.member_id "+
-        "JOIN rsvp_confirmation_choices c ON c.group_id=m.group_id "+
-        "WHERE e.source='admin' AND ("+
-        "(c.choice='EMAIL' AND e.received_at>c.updated_at) OR "+
-        "(c.choice='NO' AND e.received_at=c.updated_at)) "+
-        "GROUP BY e.member_id"
-      ),
-      env.DB.prepare(
-        "INSERT OR IGNORE INTO rsvp_data_migrations(name,applied_at) VALUES(?,?)"
-      ).bind(version,new Date().toISOString())
-    ]);
-  }
   memberEmailClearsReady=true;
 }
 async function saveEmailChoice(env,groupId,choice,email=''){
@@ -368,7 +344,8 @@ async function overview(env){
     "SELECT m.id,m.group_id,m.display_name,m.role,m.rsvp_status,m.updated_at,"+
     "COALESCE(c.choice,'') AS email_choice,"+
     "CASE WHEN m.rsvp_status='pending' THEN '' "+
-    "WHEN cleared.member_id IS NOT NULL THEN '' "+
+    "WHEN cleared.member_id IS NOT NULL AND ("+
+    "c.updated_at IS NULL OR cleared.cleared_at >= c.updated_at) THEN '' "+
     "WHEN c.choice='NO' THEN 'NO' "+
     "WHEN c.choice='EMAIL' THEN c.email ELSE '' END AS email "+
     "FROM rsvp_members m "+
