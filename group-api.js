@@ -359,11 +359,22 @@ async function sendConfirmationEmail(req,env,ctx){
   ).bind(groupId,emailHash,at).run();
   if(!Number(claimed.meta?.changes))
     return json({ok:true,queued:true,already_queued:true},202);
+  // Save the address for exactly these guests before acknowledging the
+  // request. The dashboard shows the address as processing immediately.
+  try{
+    await queueMemberEmail(env,targets,email,emailHash);
+  }catch(err){
+    await env.DB.prepare(
+      "DELETE FROM rsvp_confirmation_deliveries WHERE group_id=? AND email_hash=?"
+    ).bind(groupId,emailHash).run().catch(()=>{});
+    return error(err?.message||"Could not register the email request.",409);
+  }
 
   // The request belongs to the Cloudflare Worker. Its lifetime no longer
   // depends on a browser window, page navigation, or dismissal of the modal.
   const deliver=(async()=>{
     const gmailStartedAt=Date.now();
+    let gmailAccepted=false;
     try{
       const response=await fetch(env.GMAIL_SCRIPT_URL,{
         method:"POST",
@@ -379,9 +390,10 @@ async function sendConfirmationEmail(req,env,ctx){
       const details=await response.json().catch(()=>({}));
       if(!response.ok||details.ok!==true)
         throw Error("Gmail did not accept the wedding confirmation.");
-      // Record this address ONLY for members included in this delivery.
-      // Existing confirmation addresses for others are never overwritten.
-      await saveMemberEmailChoices(env,targets,"EMAIL",email);
+      gmailAccepted=true;
+      // Convert the provisional address into a delivered confirmation.
+      // This never modifies any other member of the invitation.
+      await completeMemberEmail(env,targets,email,emailHash);
       console.log("[Wedding RSVP] Gmail accepted delivery",{
         group_id:groupId,
         gmail_request_ms:Date.now()-gmailStartedAt,
@@ -394,9 +406,15 @@ async function sendConfirmationEmail(req,env,ctx){
         since_worker_request_ms:Date.now()-handlingStartedAt,
         error:err?.message||String(err)
       });
-      await env.DB.prepare(
-        "DELETE FROM rsvp_confirmation_deliveries WHERE group_id=? AND email_hash=?"
-      ).bind(groupId,emailHash).run().catch(()=>{});
+      if(!gmailAccepted){
+        // Gmail rejected the request: release it for a corrected retry.
+        await clearQueuedMemberEmail(env,targets,emailHash).catch(()=>{});
+        await env.DB.prepare(
+          "DELETE FROM rsvp_confirmation_deliveries WHERE group_id=? AND email_hash=?"
+        ).bind(groupId,emailHash).run().catch(()=>{});
+      }
+      // If Gmail accepted but D1 had a transient error, retain the queued
+      // address rather than misreporting a successful delivery as a failure.
     }
   })();
   ctx.waitUntil(deliver);
