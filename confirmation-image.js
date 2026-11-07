@@ -46,23 +46,43 @@
     ctx.stroke();ctx.restore();
   };
   function extendBlankBackground(ctx,source,split,gap){
-    // Insert an exact-width section between two consecutive CLEAN rows
-    // of the source illustration (743 and 744). Both rows already contain
-    // the complete gold frame, so the vertical borders remain continuous.
-    // A smooth interpolation avoids dark bars, ghosting and horizontal seams.
+    // Extend the artwork only between two adjacent plain rows. Preserve
+    // the original full-width gold frame, including its antialiasing.
+    // Softly blur the burgundy interior horizontally: copying a single
+    // textured scanline downward would create visible vertical streaks.
     const upper=ctx.getImageData(0,split-1,W,1).data;
     const scan=document.createElement('canvas');
     scan.width=W;scan.height=1;
     const sc=scan.getContext('2d',{willReadFrequently:true});
     sc.drawImage(source,0,split,W,1,0,0,W,1);
     const lower=sc.getImageData(0,0,W,1).data;
+    const interiorLeft=43,interiorRight=W-43,radius=35,stride=W*4;
+    const smooth=new Float32Array(stride);
+    for(let x=interiorLeft;x<interiorRight;x++){
+      const lo=Math.max(interiorLeft,x-radius);
+      const hi=Math.min(interiorRight-1,x+radius);
+      const samples=hi-lo+1;
+      for(let color=0;color<3;color++){
+        let sum=0;
+        for(let xx=lo;xx<=hi;xx++){
+          const i=xx*4+color;
+          sum+=(upper[i]+lower[i])*.5;
+        }
+        smooth[x*4+color]=sum/samples;
+      }
+    }
     const block=ctx.createImageData(W,gap);
-    const stride=W*4;
     for(let y=0;y<gap;y++){
-      const t=(y+1)/(gap+1),offset=y*stride;
-      for(let i=0;i<stride;i++){
-        block.data[offset+i]=i%4===3?255:
-          Math.round(upper[i]*(1-t)+lower[i]*t);
+      const t=(y+1)/(gap+1);
+      const yBlend=Math.min(1,(y+1)/20,(gap-y)/20);
+      for(let x=0;x<W;x++){
+        const xBlend=Math.max(0,Math.min(1,(x-interiorLeft)/40,(interiorRight-x)/40));
+        const alpha=xBlend*yBlend,src=x*4,dst=(y*W+x)*4;
+        for(let ch=0;ch<3;ch++){
+          const raw=upper[src+ch]*(1-t)+lower[src+ch]*t;
+          block.data[dst+ch]=Math.round(raw*(1-alpha)+smooth[src+ch]*alpha);
+        }
+        block.data[dst+3]=255;
       }
     }
     ctx.putImageData(block,0,split);
