@@ -25,10 +25,12 @@
       }
       if(original.naturalWidth!==WIDTH||original.naturalHeight!==HEIGHT)
         throw Error('Unexpected wedding cover dimensions');
+      // A temporarily unavailable web font must not prevent the artwork
+      // from being displayed; Canvas can use its local serif fallback.
       await Promise.all([
         document.fonts?.load('400 170px "Great Vibes"'),
         document.fonts?.load('500 74px "Cormorant Garamond"')
-      ].filter(Boolean));
+      ].filter(Boolean).map(p=>p.catch(()=>{})));
 
       const canvas=document.createElement('canvas');
       canvas.width=WIDTH;canvas.height=HEIGHT;
