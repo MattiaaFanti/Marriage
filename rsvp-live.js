@@ -1,11 +1,9 @@
 /* One hibernatable WebSocket room for instant RSVP dashboard changes.
    No guest data is transported here: messages only ask clients to refetch
    the existing read-only overview/history endpoints from D1. */
-export class RSVPUpdates {
-  constructor(ctx,env){
-    this.ctx=ctx;
-    this.env=env;
-  }
+import { DurableObject } from "cloudflare:workers";
+
+export class RSVPUpdates extends DurableObject {
   async fetch(request){
     const url=new URL(request.url);
     if(request.headers.get("Upgrade")?.toLowerCase()==="websocket"){
