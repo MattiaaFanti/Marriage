@@ -7,7 +7,7 @@ The invitation email is sent only with Gmail via Google Apps Script. No paid ema
 - A confirmed RSVP with one or more attending guests offers Send email or Skip.
 - The Send button shows an animated spinner while the site prepares and uploads the image.
 - Cloudflare validates the RSVP and starts sending the email using **`ctx.waitUntil()`**. The background request is owned by the Worker, so it is not canceled when the guest presses **OK**, closes the browser, or navigates away **after the Worker has accepted the request**.
-- **Within approximately 2 seconds** of clicking Send, the modal switches to **“Your email is on its way!”** while the image upload / submission continues independently of the popup. The message means processing is underway, **not** that delivery is already complete. The interface shows **“Email sent successfully!”** only when the server actually reports an already-completed delivery.
+- The confirmation popup appears after **at least 2 seconds**, as soon as Cloudflare has accepted and persisted the request. If an image upload or network request exceeds 2 seconds, the processing indicator remains until the Worker acknowledges it. This avoids claiming a background send that was never accepted. The browser does **not** wait for Gmail delivery.
 - Failed submissions appear inside the modal; the screen does not close on failure. Background Gmail errors are logged in Worker logs and clear the pending attempt so that it can be retried.
 - Cloudflare's background work has a **30-second `waitUntil()` window after the response**. Typical Gmail delivery takes only a few seconds; longer failures may need a separate Queue integration.
 - The confirmation card is a **lossless PNG**. The middle has chair icons, `X seat/seats reserved for you`, and only attending guests' names, in the site's Cormorant Garamond font.
@@ -54,7 +54,7 @@ Cloudflare deployment uses the `RSVP_LIVE` Durable Object binding and the `rsvp-
 - When a group member changes from **Not Attending** to **Attending**, the website offers confirmation only for attendees without an existing sent email. Their names and IDs are checked by the Worker against the current RSVP states.
 - Example: person A has `first@example.com` and person B changes their mind. Person A keeps their original address. Person B receives their confirmation at `second@example.com`, without overwriting A.
 - The new address becomes visible in the dashboard as **Sending…** once Cloudflare accepts the image and recipient; after Gmail confirms it, the address is saved as **sent**.
-- A failed Gmail delivery clears only its provisional request, allowing another attempt. A subsequent manual or guest RSVP status change clears only that member's confirmation and queued request.
+- A failed Gmail delivery clears only its provisional request, allowing another attempt. A member who explicitly selected Skip remains opted out of email when another person in the group changes their RSVP. A subsequent manual or guest RSVP status change clears only that member's confirmation and queued request.
 - The one-time migration recovers surviving legacy group emails for guests who were already Attending **before** the legacy email was recorded. It deliberately avoids copying that email to someone who changed to Attending later. Previously overwritten emails cannot be reconstructed from the old group record.
 - **Reset All** clears the old group records, individual confirmed addresses and pending send records.
 
