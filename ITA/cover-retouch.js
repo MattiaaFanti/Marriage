@@ -114,15 +114,59 @@
     };
     const upper=sampleColor(1010,975),lower=sampleColor(1080,2718);
     function hideEnglish(x,y,w,h,col){
-      const patch=ctx.createImageData(w,h);
-      for(let yy=0;yy<h;yy++){
-        const fy=Math.min(1,(yy+1)/21,(h-yy)/21);
-        for(let xx=0;xx<w;xx++){
-          const fx=Math.min(1,(xx+1)/24,(w-xx)/24);
-          const p=(yy*w+xx)*4;
-          for(let k=0;k<3;k++)patch.data[p+k]=col[k];
-          patch.data[p+3]=Math.round(255*Math.max(0,Math.min(fx,fy)));
+      // Inpaint only bright cream letters using the nearby original burgundy
+      // pixels. Everything else, including gold arrows and the background
+      // texture, stays byte-for-byte visible through transparency.
+      const sourcePixels=sc.getImageData(x,y,w,h).data;
+      const count=w*h,mask=new Uint8Array(count);
+      for(let i=0;i<count;i++){
+        const p=i*4,r=sourcePixels[p],g=sourcePixels[p+1],b=sourcePixels[p+2];
+        if(r>118&&g>105&&b>89&&r+g+b>385&&
+           g<r+18&&b<g+42&&b>g*.65)mask[i]=1;
+      }
+      // Include anti-aliased edges of each letter, but not a rectangular
+      // patch. Four-pixel dilation removes the original glyph halo.
+      let dilated=mask;
+      for(let pass=0;pass<4;pass++){
+        const next=dilated.slice();
+        for(let yy=1;yy<h-1;yy++){
+          const row=yy*w;
+          for(let xx=1;xx<w-1;xx++){
+            const i=row+xx;
+            if(!dilated[i])continue;
+            for(let dy=-1;dy<=1;dy++)
+              for(let dx=-1;dx<=1;dx++)next[i+dy*w+dx]=1;
+          }
         }
+        dilated=next;
+      }
+      // Multi-source propagation selects original background from the
+      // nearest clean burgundy pixel; no flat-color artificial rectangles.
+      const nearest=new Int32Array(count);nearest.fill(-1);
+      const queue=new Int32Array(count);let tail=0;
+      for(let i=0;i<count;i++){
+        const p=i*4,r=sourcePixels[p],g=sourcePixels[p+1],b=sourcePixels[p+2];
+        if(!dilated[i]&&r>40&&r>g*1.5&&r>b*1.1&&g<90&&b<110){
+          nearest[i]=i;queue[tail++]=i;
+        }
+      }
+      for(let head=0;head<tail;head++){
+        const i=queue[head],x=i%w;
+        const neighbors=[x?i-1:-1,x<w-1?i+1:-1,i>=w?i-w:-1,i<count-w?i+w:-1];
+        for(const j of neighbors){
+          if(j<0||nearest[j]!==-1)continue;
+          nearest[j]=nearest[i];queue[tail++]=j;
+        }
+      }
+      const patch=ctx.createImageData(w,h);
+      for(let i=0;i<count;i++){
+        if(!dilated[i])continue;
+        const p=i*4,origin=nearest[i];
+        const q=origin>=0?origin*4:-1;
+        patch.data[p]=q>=0?sourcePixels[q]:col[0];
+        patch.data[p+1]=q>=0?sourcePixels[q+1]:col[1];
+        patch.data[p+2]=q>=0?sourcePixels[q+2]:col[2];
+        patch.data[p+3]=255;
       }
       ctx.putImageData(patch,x,y);
     }
