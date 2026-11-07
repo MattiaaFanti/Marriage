@@ -370,9 +370,13 @@ async function submit(req,env){
         "DELETE FROM rsvp_member_email_choices WHERE member_id=?"
       ).bind(m.id));
     }
-    statements.push(env.DB.prepare(
-      "UPDATE rsvp_members SET rsvp_status=?,updated_at=? WHERE id=? AND group_id=?"
-    ).bind(status,at,m.id,groupId));
+    // Keep the status timestamp stable for unchanged members. A pending
+    // Gmail send can then safely persist its earlier delivery result.
+    if(status!==m.rsvp_status){
+      statements.push(env.DB.prepare(
+        "UPDATE rsvp_members SET rsvp_status=?,updated_at=? WHERE id=? AND group_id=?"
+      ).bind(status,at,m.id,groupId));
+    }
     statements.push(env.DB.prepare(
       "INSERT INTO rsvp_member_events(member_id,previous_status,status,source,received_at) "+
       "VALUES(?,?,?,'guest',?)"
