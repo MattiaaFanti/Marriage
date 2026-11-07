@@ -148,6 +148,7 @@ async function lookup(req,env){
 /* Send an RSVP confirmation through the free Gmail Apps Script integration.
    The wedding website renders a lossless PNG; Gmail embeds it inline. */
 async function sendConfirmationEmail(req,env,ctx){
+  const handlingStartedAt=Date.now();
   const declared=Number(req.headers.get("content-length")||0);
   if(declared>9800000)return error("Confirmation image is too large.",413);
   const raw=await req.text();
@@ -236,6 +237,7 @@ async function sendConfirmationEmail(req,env,ctx){
   // The request belongs to the Cloudflare Worker. Its lifetime no longer
   // depends on a browser window, page navigation, or dismissal of the modal.
   const deliver=(async()=>{
+    const gmailStartedAt=Date.now();
     try{
       const response=await fetch(env.GMAIL_SCRIPT_URL,{
         method:"POST",
@@ -253,15 +255,29 @@ async function sendConfirmationEmail(req,env,ctx){
         throw Error("Gmail did not accept the wedding confirmation.");
       // Store the recipient address only after Gmail returns success.
       await saveEmailChoice(env,groupId,"EMAIL",email);
-      console.log("[Wedding RSVP] Email sent by Gmail for group",groupId);
+      console.log("[Wedding RSVP] Gmail accepted delivery",{
+        group_id:groupId,
+        gmail_request_ms:Date.now()-gmailStartedAt,
+        since_worker_request_ms:Date.now()-handlingStartedAt
+      });
     }catch(err){
-      console.error("[Wedding RSVP] Background Gmail delivery failed",groupId,err?.message||err);
+      console.error("[Wedding RSVP] Background Gmail delivery failed",{
+        group_id:groupId,
+        gmail_request_ms:Date.now()-gmailStartedAt,
+        since_worker_request_ms:Date.now()-handlingStartedAt,
+        error:err?.message||String(err)
+      });
       await env.DB.prepare(
         "DELETE FROM rsvp_confirmation_deliveries WHERE group_id=? AND email_hash=?"
       ).bind(groupId,emailHash).run().catch(()=>{});
     }
   })();
   ctx.waitUntil(deliver);
+  console.log("[Wedding RSVP] Email accepted for background delivery",{
+    group_id:groupId,
+    worker_setup_ms:Date.now()-handlingStartedAt,
+    png_kb:Math.round(match[1].length*3/4/1024)
+  });
   return json({ok:true,queued:true},202);
 }
 
