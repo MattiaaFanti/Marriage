@@ -45,28 +45,20 @@
     ctx.moveTo(5,19);ctx.lineTo(5,21);ctx.moveTo(19,19);ctx.lineTo(19,21);
     ctx.stroke();ctx.restore();
   };
-  function extendBlankBackground(ctx,split,gap){
-    // Copy clean burgundy rows from the exact reference so the inserted
-    // space has the same horizontal gradient and no ornamental streaks.
-    const innerX=37,innerW=W-74;
-    const top=ctx.getImageData(innerX,split-1,innerW,1).data;
-    const bottom=ctx.getImageData(innerX,split-7,innerW,1).data;
-    const image=ctx.createImageData(innerW,gap);
+  function extendBlankBackground(ctx,source,split,gap){
+    // Sample a clean burgundy scanline from the ORIGINAL artwork, including
+    // the gold frame and the outer edges. Stretching only the strip avoids
+    // the black side bars and the vertical color seams of the old fill.
+    const scan=document.createElement('canvas');
+    scan.width=W;scan.height=1;
+    const sc=scan.getContext('2d',{willReadFrequently:true});
+    sc.drawImage(source,0,740,W,1,0,0,W,1);
+    const row=sc.getImageData(0,0,W,1).data;
+    const insert=ctx.createImageData(W,gap);
     for(let y=0;y<gap;y++){
-      const t=y/(gap-1);
-      for(let x=0;x<innerW;x++){
-        const i=x*4,o=(y*innerW+x)*4;
-        for(let k=0;k<3;k++)image.data[o+k]=Math.round(top[i+k]*(1-t)+bottom[i+k]*t);
-        image.data[o+3]=255;
-      }
+      insert.data.set(row,y*W*4);
     }
-    ctx.putImageData(image,innerX,split);
-    for(const [x,weight,color] of [
-      [17,5,'#d7a246'],[28,2,'#f7e0a0'],
-      [W-17,5,'#d7a246'],[W-28,2,'#f7e0a0']]){
-      ctx.beginPath();ctx.moveTo(x,split);ctx.lineTo(x,split+gap);
-      ctx.strokeStyle=color;ctx.lineWidth=weight;ctx.stroke();
-    }
+    ctx.putImageData(insert,0,split);
   }
   function guestBlock(ctx,names,split){
     const middle=W/2,n=Math.min(names.length,7);
@@ -88,33 +80,48 @@
       y+=32;
     }
   }
-  function replaceReceptionAddress(ctx,offset){
-    // Match the burgundy pixels of the reference before replacing only its
-    // right-hand reception values; retain all labels and decorative borders.
-    const x=357,y=973+offset,w=461,h=116;
-    const top=ctx.getImageData(x,968+offset,w,1).data;
-    const bottom=ctx.getImageData(x,1091+offset,w,1).data;
-    const area=ctx.createImageData(w,h);
-    for(let row=0;row<h;row++){
-      const t=row/(h-1);
-      for(let col=0;col<w;col++){
-        const k=col*4,p=(row*w+col)*4;
-        for(let ch=0;ch<3;ch++){
-          const a=top[k+ch],b=bottom[k+ch];
-          area.data[p+ch]=Math.round((a>135?78:a)*(1-t)+(b>135?78:b)*t);
-        }
-        area.data[p+3]=255;
-      }
-    }
-    ctx.putImageData(area,x,y);
-    const value=(text,position,size)=>{
-      while(size>17&&width(ctx,text,size,{italic:true})>435)size--;
-      write(ctx,text,371,position+offset,size,{italic:true,align:'left'});
+  function replaceReceptionAddress(ctx,source,offset){
+    // Preserve the reference card's frame, icons and row labels. Only the
+    // burgundy value column is repainted with a clean sampled scanline.
+    const x=357,topY=973,bottomY=1098,w=461;
+    const sample=document.createElement('canvas');
+    sample.width=W;sample.height=1;
+    const sc=sample.getContext('2d',{willReadFrequently:true});
+    sc.drawImage(source,0,977,W,1,0,0,W,1);
+    const row=sc.getImageData(x,0,w,1).data;
+    const area=ctx.createImageData(w,bottomY-topY);
+    for(let y=0;y<bottomY-topY;y++)area.data.set(row,y*w*4);
+    ctx.putImageData(area,x,topY+offset);
+
+    // Reception address now occupies two lines. Lower the next two left
+    // labels and redraw the matching right values at the same baselines.
+    // Clear ONLY the left labels, leaving their original gold icons intact.
+    const leftX=155,leftTop=1016,leftW=177,leftH=82;
+    sc.clearRect(0,0,W,1);
+    sc.drawImage(source,0,1004,W,1,0,0,W,1);
+    const background=sc.getImageData(leftX,0,leftW,1).data;
+    const cleared=ctx.createImageData(leftW,leftH);
+    for(let y=0;y<leftH;y++)cleared.data.set(background,y*leftW*4);
+    ctx.putImageData(cleared,leftX,leftTop+offset);
+
+    // Slightly extend the thin gold dividers beside the two-line address.
+    ctx.strokeStyle='#e2b958';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(345,978+offset);ctx.lineTo(345,1103+offset);
+    ctx.stroke();
+
+    const label=(text,y)=>{
+      write(ctx,text,167,y+offset,19,{weight:'600',align:'left'});
     };
-    value('Bahay Baluk Baluk Restaurant,',987,23);
-    value('Maatas Na Kahoy, Lipa City, Batangas',1010,21);
-    value('6:00 PM onwards',1036,23);
-    value('Semi-formal · Shades of Red to Burgundy',1072,22);
+    label('RECEPTION TIME',1044);
+    label('DRESS CODE',1085);
+    const value=(text,y,size)=>{
+      while(size>17&&width(ctx,text,size,{italic:true})>438)size--;
+      write(ctx,text,371,y+offset,size,{italic:true,align:'left'});
+    };
+    value('Bahay Baluk Baluk Restaurant,',982,23);
+    value('Maatas Na Kahoy, Lipa City, Batangas',1008,21);
+    value('6:00 PM onwards',1044,24);
+    value('Semi-formal · Shades of Red to Burgundy',1085,22);
   }
   async function createImage(names){
     if(!Array.isArray(names)||!names.length||names.length>20||
@@ -137,9 +144,9 @@
     if(!ctx)throw Error('This browser cannot create the confirmation image.');
     ctx.drawImage(source,0,0,W,split,0,0,W,split);
     ctx.drawImage(source,0,split,W,H-split,0,split+gap,W,H-split);
-    extendBlankBackground(ctx,split,gap);
+    extendBlankBackground(ctx,source,split,gap);
     guestBlock(ctx,names,split);
-    replaceReceptionAddress(ctx,gap);
+    replaceReceptionAddress(ctx,source,gap);
     // PNG preserves the full pixel detail of the source without a second
     // lossy encode. Gmail embeds these bytes inline.
     const result=canvas.toDataURL('image/png');
