@@ -404,19 +404,15 @@ async function overview(env){
       "WHEN group_code='family-assunta-jessica-andrea-2026' THEN 3 "+
       "ELSE 4 END,id"
   ).all()).results;
-  await ensureEmailChoices(env);
-  await ensureMemberEmailClears(env);
+  await ensureMemberEmailChoices(env);
   const people=(await env.DB.prepare(
     "SELECT m.id,m.group_id,m.display_name,m.role,m.rsvp_status,m.updated_at,"+
     "COALESCE(c.choice,'') AS email_choice,"+
     "CASE WHEN m.rsvp_status='pending' THEN '' "+
-    "WHEN cleared.member_id IS NOT NULL AND ("+
-    "c.updated_at IS NULL OR cleared.cleared_at >= c.updated_at) THEN '' "+
     "WHEN c.choice='NO' THEN 'NO' "+
     "WHEN c.choice='EMAIL' THEN c.email ELSE '' END AS email "+
     "FROM rsvp_members m "+
-    "LEFT JOIN rsvp_confirmation_choices c ON c.group_id=m.group_id "+
-    "LEFT JOIN rsvp_member_email_clears cleared ON cleared.member_id=m.id "+
+    "LEFT JOIN rsvp_member_email_choices c ON c.member_id=m.id "+
     "ORDER BY m.group_id,m.id"
   ).all()).results;
   // These seven guests attend virtually when they choose Attending. They
