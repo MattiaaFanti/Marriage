@@ -24,7 +24,7 @@
 
   function playDecodedMusic(){
     if(!audioVisible()||!musicWanted||musicSource||!decodedMusic||
-       !musicContext||musicContext.state!=='running')return;
+       !musicContext||musicContext.state==='closed')return;
     try{
       const source=musicContext.createBufferSource();
       const gain=musicContext.createGain();
@@ -113,11 +113,13 @@
       musicContext.suspend().catch(()=>{});
   }
 
-  // Autoplay is attempted where allowed; otherwise the first gesture starts it.
+  // Prepare the decoded source even while the context is suspended. On browsers
+  // that allow autoplay it plays immediately; otherwise a single gesture resumes it.
+  // Keep Web Audio: HTML media elements can create Android media notifications.
   startMusic();
   document.addEventListener('DOMContentLoaded',startMusic,{once:true});
   window.addEventListener('load',startMusic,{once:true});
-  for(const eventName of ['pointerdown','touchstart','click','keydown']){
+  for(const eventName of ['pointerdown','pointerup','touchstart','touchend','click','keydown']){
     document.addEventListener(eventName,startMusic,{capture:true,passive:true});
   }
   document.addEventListener('visibilitychange',()=>{
