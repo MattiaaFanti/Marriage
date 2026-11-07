@@ -194,7 +194,7 @@
           '<button type="button" class="rsvp-primary rsvp-email-action rsvp-email-skip" data-act="skipEmail"'+(state.busy?' disabled':'')+'>Skip - I don&#39;t want a confirmation e-mail</button>'+
           '</div></form>';
       }else{
-        html+=primary('Back to the invitation','close');
+        html+=primary('OK','close');
       }
     }
     if(state.step==='emailSent'){
@@ -204,7 +204,16 @@
           '<h2 id="rsvpHeading">Email sent successfully!</h2>'+
           '<p>Your wedding confirmation has been sent to<br><strong>'+enc(state.confirmationEmail)+'</strong>.</p>'+
           '<p class="rsvp-success-signoff">See you soon!</p>'+
-        '</div>'+primary('Back to the invitation','close');
+        '</div>'+primary('OK','close');
+    }
+    if(state.step==='emailQueued'){
+      html='<p class="rsvp-kicker">MATTIA & KIRSTEN</p>'+
+        '<div class="rsvp-email-success" role="status" aria-live="polite">'+
+          '<span class="rsvp-success-mark rsvp-queued-mark" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="21" stroke="currentColor" stroke-width="2.6"/><path d="M24 12v13l9 5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>'+
+          '<h2 id="rsvpHeading">Your email is on its way!</h2>'+
+          '<p>We are sending your wedding confirmation to<br><strong>'+enc(state.confirmationEmail)+'</strong>.</p>'+
+          '<p class="rsvp-success-signoff">See you soon!</p>'+
+        '</div>'+primary('OK','close');
     }
     content.innerHTML=html;
     content.querySelectorAll('[data-act]').forEach(btn=>btn.addEventListener('click',()=>action(btn.dataset.act)));
@@ -400,10 +409,13 @@
       const generation=lookupGeneration;
       const names=attendingMembers().map(m=>m.name);
       state.busy=true;state.error='';state.sendingPhase='Preparing your wedding invitation…';render();
-      try{
+      // Display feedback after three seconds even when Gmail takes longer.
+      // "Sent successfully" is reserved for Gmail's actual confirmation.
+      const mailTask=(async()=>{
         const image=await window.WEDDING_CONFIRMATION_IMAGE.createImage(names);
         if(generation!==lookupGeneration)return;
-        state.sendingPhase='Sending your confirmation email…';render();
+        state.sendingPhase='Sending your confirmation email…';
+        if(state.step==='done'&&!modal.hidden)render();
         const response=await fetch(api+'/api/household/send-confirmation-email',{
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
@@ -413,16 +425,33 @@
           cache:'no-store'
         });
         const data=await response.json().catch(()=>({}));
-        if(generation!==lookupGeneration)return;
         if(!response.ok)throw Error(data.error||'Could not send the confirmation e-mail.');
-        state.emailChoice='EMAIL';state.busy=false;state.sendingPhase='';
-        state.step='emailSent';render();return;
-      }catch(err){
-        if(generation!==lookupGeneration)return;
-        state.error=err.message||'Could not send the confirmation e-mail.';
-      }finally{
-        if(generation===lookupGeneration){state.busy=false;if(!modal.hidden)render();}
+      })();
+      let delivery='pending',deliveryError=null;
+      // Attach both handlers immediately to avoid unhandled rejections.
+      mailTask.then(()=>{delivery='sent';},err=>{delivery='failed';deliveryError=err;});
+      await new Promise(resolve=>setTimeout(resolve,3000));
+      if(generation!==lookupGeneration)return;
+      state.busy=false;state.sendingPhase='';
+      if(delivery==='sent'){
+        state.emailChoice='EMAIL';state.step='emailSent';render();return;
       }
+      if(delivery==='failed'){
+        state.error=deliveryError?.message||'Could not send the confirmation e-mail.';
+        state.step='done';render();return;
+      }
+      // Gmail is still processing. The visitor can press OK immediately
+      // while the request continues; the Worker updates the D1 email field.
+      state.step='emailQueued';render();
+      mailTask.then(()=>{
+        if(generation!==lookupGeneration||modal.hidden)return;
+        state.emailChoice='EMAIL';state.step='emailSent';render();
+      },err=>{
+        console.error('Wedding confirmation email failed:',err);
+        if(generation!==lookupGeneration||modal.hidden)return;
+        state.error=err.message||'Could not send the confirmation e-mail.';
+        state.step='done';render();
+      });
       return;
     }
     if(kind==='retrySearch'){open();return;}
@@ -497,8 +526,9 @@
         });
         const data=await resp.json().catch(()=>({}));
         if(!resp.ok)throw Error(data.error||'Could not save your responses.');
-        const singleDecline=state.members.length===1&&state.answers[state.members[0].id]==='not_attending';
-        state.step=singleDecline?'regret':'dress';state.error='';
+        // No dress code screen if nobody in the group will attend.
+        const hasAttendees=state.members.some(m=>state.answers[m.id]==='attending');
+        state.step=hasAttendees?'dress':'regret';state.error='';
       }catch(e){state.error=e.message||'Could not save. Please retry.';}
       finally{state.busy=false;render();}
     }
