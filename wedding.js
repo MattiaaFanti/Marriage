@@ -407,6 +407,7 @@
         state.error='The confirmation e-mail service is not available.';render();return;
       }
       const generation=lookupGeneration;
+      const token=state.token;
       const names=attendingMembers().map(m=>m.name);
       // Initiate image generation and the Cloudflare request immediately.
       // They are independent of the popup's two-second display timer.
@@ -418,7 +419,7 @@
         const response=await fetch(api+'/api/household/send-confirmation-email',{
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
-            household_token:state.token,email,
+            household_token:token,email,
             image_data_url:image,attending_names:names
           }),cache:'no-store'
         });
