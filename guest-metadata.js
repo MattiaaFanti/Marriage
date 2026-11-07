@@ -7,6 +7,29 @@ const version="guest-role-corrections-2026-11-06-v4";
    and all existing aliases are preserved. Re-entrant / safe to re-run. */
 const splitVersion="wedding-initial-household-split-v1-2026-11-06";
 const roleLabelsVersion="wedding-guest-role-labels-2026-11-07-v1";
+const fullGodparentLabelsVersion="wedding-ninang-ninong-2026-11-07-v1";
+
+/* Convert the existing Nina/Nino values to their requested full roles.
+   This is additive: the earlier migration may already have run in D1. */
+async function ensureFullGodparentLabels(env){
+  const done=await env.DB.prepare(
+    "SELECT name FROM rsvp_data_migrations WHERE name=?"
+  ).bind(fullGodparentLabelsVersion).first();
+  if(done)return;
+  await env.DB.batch([
+    env.DB.prepare(
+      "UPDATE rsvp_members SET role=CASE LOWER(TRIM(role)) "+
+      "WHEN 'nina' THEN 'Ninang' WHEN 'ninang' THEN 'Ninang' "+
+      "WHEN 'nino' THEN 'Ninong' WHEN 'ninong' THEN 'Ninong' "+
+      "ELSE role END "+
+      "WHERE LOWER(TRIM(role)) IN ('nina','nino','ninang','ninong')"
+    ),
+    env.DB.prepare(
+      "INSERT OR IGNORE INTO rsvp_data_migrations(name,applied_at) VALUES(?,?)"
+    ).bind(fullGodparentLabelsVersion,new Date().toISOString())
+  ]);
+}
+
 const adanFullNameVersion="wedding-adam-adan-deguidoy-2026-11-07-v1";
 
 /* One-off update of guest #35's display name, preserving the original
@@ -127,7 +150,7 @@ export async function ensureGuestMetadata(env){
     const previous=await env.DB.prepare(
       "SELECT name FROM rsvp_data_migrations WHERE name=?"
     ).bind(version).first();
-    if(previous){await ensureInitialHouseholdSplit(env);await ensureRoleLabelMigration(env);await ensureAdanFullNameMigration(env);ready=true;return;}
+    if(previous){await ensureInitialHouseholdSplit(env);await ensureRoleLabelMigration(env);await ensureFullGodparentLabels(env);await ensureAdanFullNameMigration(env);ready=true;return;}
     const statements=[];
     for(const [oldName,newName,role] of renames){
       statements.push(env.DB.prepare(
@@ -180,6 +203,7 @@ export async function ensureGuestMetadata(env){
     await env.DB.batch(statements);
     await ensureInitialHouseholdSplit(env);
     await ensureRoleLabelMigration(env);
+    await ensureFullGodparentLabels(env);
     await ensureAdanFullNameMigration(env);
     ready=true;
   })().finally(()=>{running=null});
