@@ -367,7 +367,10 @@ async function sendConfirmationEmail(req,env,ctx){
           token:env.GMAIL_SCRIPT_TOKEN,
           to:email,
           image_base64:match[1],
-          subject:"Save the date! - Your Wedding Confirmation"
+          locale:body?.locale==="it"?"it":"en",
+          subject:body?.locale==="it"?
+            "Mattia & Kirsten - Conferma della partecipazione al matrimonio":
+            "Save the date! - Your Wedding Confirmation"
         }),
         redirect:"follow"
       });
