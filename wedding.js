@@ -177,7 +177,7 @@
         '<p class="rsvp-regret-copy">Though distance may keep us apart, you will always have a special place in our hearts.</p>'+
         '<p class="rsvp-regret-copy">We warmly invite you to join us virtually and be part of our special day as we exchange our vows and begin this beautiful journey together.</p>'+
         '<p class="rsvp-regret-signature">WITH LOVE,<strong>Mattia & Kirsten</strong></p>'+
-        primary('Continue','done');
+        primary('OK','close');
     }
     if(state.step==='done'){
       html='<p class="rsvp-kicker">MATTIA & KIRSTEN</p><h2 id="rsvpHeading">Thank you!</h2>'+
