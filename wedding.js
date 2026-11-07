@@ -408,14 +408,15 @@
       }
       const generation=lookupGeneration;
       const names=attendingMembers().map(m=>m.name);
-      state.busy=true;state.error='';state.sendingPhase='Preparing your wedding invitation…';render();
-      // Display feedback after three seconds even when Gmail takes longer.
-      // "Sent successfully" is reserved for Gmail's actual confirmation.
-      const mailTask=(async()=>{
+      const startedAt=Date.now();
+      state.busy=true;state.error='';
+      state.sendingPhase='Preparing your wedding invitation…';render();
+      try{
         const image=await window.WEDDING_CONFIRMATION_IMAGE.createImage(names);
         if(generation!==lookupGeneration)return;
-        state.sendingPhase='Sending your confirmation email…';
-        if(state.step==='done'&&!modal.hidden)render();
+        state.sendingPhase='Submitting your confirmation to our email service…';render();
+        // Cloudflare takes ownership of delivery before it answers this call.
+        // Closing the popup after acceptance cannot cancel the Gmail request.
         const response=await fetch(api+'/api/household/send-confirmation-email',{
           method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
@@ -425,33 +426,32 @@
           cache:'no-store'
         });
         const data=await response.json().catch(()=>({}));
-        if(!response.ok)throw Error(data.error||'Could not send the confirmation e-mail.');
-      })();
-      let delivery='pending',deliveryError=null;
-      // Attach both handlers immediately to avoid unhandled rejections.
-      mailTask.then(()=>{delivery='sent';},err=>{delivery='failed';deliveryError=err;});
-      await new Promise(resolve=>setTimeout(resolve,3000));
-      if(generation!==lookupGeneration)return;
-      state.busy=false;state.sendingPhase='';
-      if(delivery==='sent'){
-        state.emailChoice='EMAIL';state.step='emailSent';render();return;
+        if(generation!==lookupGeneration)return;
+        if(!response.ok||!data.ok)
+          throw Error(data.error||'Unable to submit your confirmation email.');
+        // Two-second minimum from the original click, not three.
+        const remaining=Math.max(0,2000-(Date.now()-startedAt));
+        if(remaining)await new Promise(resolve=>setTimeout(resolve,remaining));
+        if(generation!==lookupGeneration)return;
+        state.busy=false;state.sendingPhase='';
+        // "Sent" is shown only when the server has confirmed delivery;
+        // otherwise show the accurate queued/processing acknowledgment.
+        if(data.sent){
+          state.emailChoice='EMAIL';
+          state.step='emailSent';
+        }else{
+          state.step='emailQueued';
+        }
+        render();return;
+      }catch(err){
+        if(generation!==lookupGeneration)return;
+        state.error=err.message||'Unable to submit your confirmation email.';
+      }finally{
+        if(generation===lookupGeneration){
+          state.busy=false;
+          if(!modal.hidden&&state.step==='done')render();
+        }
       }
-      if(delivery==='failed'){
-        state.error=deliveryError?.message||'Could not send the confirmation e-mail.';
-        state.step='done';render();return;
-      }
-      // Gmail is still processing. The visitor can press OK immediately
-      // while the request continues; the Worker updates the D1 email field.
-      state.step='emailQueued';render();
-      mailTask.then(()=>{
-        if(generation!==lookupGeneration||modal.hidden)return;
-        state.emailChoice='EMAIL';state.step='emailSent';render();
-      },err=>{
-        console.error('Wedding confirmation email failed:',err);
-        if(generation!==lookupGeneration||modal.hidden)return;
-        state.error=err.message||'Could not send the confirmation e-mail.';
-        state.step='done';render();
-      });
       return;
     }
     if(kind==='retrySearch'){open();return;}
