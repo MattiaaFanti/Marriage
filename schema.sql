@@ -111,3 +111,14 @@ CREATE TABLE IF NOT EXISTS rsvp_member_email_choices (
   email TEXT NOT NULL DEFAULT '',
   updated_at TEXT NOT NULL
 );
+
+-- Addresses accepted for asynchronous delivery. The admin displays these
+-- while the Worker waits for Gmail, before a confirmed EMAIL choice exists.
+-- The Worker creates this table automatically on existing D1 databases.
+CREATE TABLE IF NOT EXISTS rsvp_member_email_pending (
+  member_id INTEGER PRIMARY KEY REFERENCES rsvp_members(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  request_hash TEXT NOT NULL,
+  status_updated_at TEXT NOT NULL DEFAULT '',
+  queued_at INTEGER NOT NULL
+);
