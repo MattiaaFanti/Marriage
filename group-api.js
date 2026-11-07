@@ -347,7 +347,10 @@ async function adminPatch(req,env,id){
   await ensureEmailChoices(env);
   const at=new Date().toISOString();
   await env.DB.batch([
-    env.DB.prepare("DELETE FROM rsvp_confirmation_choices WHERE group_id=?").bind(member.group_id),
+    env.DB.prepare(
+      "DELETE FROM rsvp_confirmation_choices WHERE group_id=? AND NOT EXISTS ("+
+      "SELECT 1 FROM rsvp_members WHERE group_id=? AND id<>? AND rsvp_status='attending') AND ?!='attending'"
+    ).bind(member.group_id,member.group_id,id,b.status),
     env.DB.prepare("UPDATE rsvp_members SET rsvp_status=?,updated_at=? WHERE id=?")
       .bind(b.status,b.status==="pending"?null:at,id),
     env.DB.prepare("INSERT INTO rsvp_member_events(member_id,previous_status,status,source,received_at) VALUES(?,?,?,'admin',?)")
