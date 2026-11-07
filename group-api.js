@@ -532,47 +532,37 @@ async function overview(env){
   return {groups:groups.map(g=>({...g,members:people.filter(p=>p.group_id===g.id)})),summary};
 }
 async function adminPatch(req,env,id){
-  const b=await parseBody(req);
-  if(!["pending","attending","not_attending"].includes(b?.status))return error("Invalid RSVP status.");
-  const member=await env.DB.prepare("SELECT * FROM rsvp_members WHERE id=?").bind(id).first();
-  if(!member)return error("Guest not found.",404);
-  // Reset to Pending also removes the visible Last updated timestamp.
-  // Preserve the separate audit-event history.
-  if(member.rsvp_status===b.status){
-    if(b.status==="pending"&&member.updated_at!==null){
+  const body=await parseBody(req);
+  if(!["pending","attending","not_attending"].includes(body?.status))
+    return error("Invalid RSVP status.");
+  const m=await env.DB.prepare("SELECT * FROM rsvp_members WHERE id=?").bind(id).first();
+  if(!m)return error("Guest not found.",404);
+  if(m.rsvp_status===body.status){
+    if(body.status==="pending"&&m.updated_at!==null){
       await env.DB.prepare("UPDATE rsvp_members SET updated_at=NULL WHERE id=?").bind(id).run();
+      await notifyRSVPUpdate(env,"guests");
     }
     return json({ok:true,unchanged:true});
   }
-  await ensureEmailChoices(env);
-  await ensureMemberEmailClears(env);
+  await ensureMemberEmailChoices(env);
   const at=new Date().toISOString();
+  // Only this person loses their old email. No group-wide DELETE/UPDATE.
   await env.DB.batch([
-    // Clearing a person's email is persistent across Pending -> Attending
-    // and only affects this member, never their group mates.
+    env.DB.prepare("DELETE FROM rsvp_member_email_choices WHERE member_id=?").bind(id),
+    env.DB.prepare("DELETE FROM rsvp_member_email_requests WHERE member_id=?").bind(id),
     env.DB.prepare(
       "INSERT INTO rsvp_member_email_clears(member_id,cleared_at) VALUES(?,?) "+
       "ON CONFLICT(member_id) DO UPDATE SET cleared_at=excluded.cleared_at"
     ).bind(id,at),
-    env.DB.prepare(
-      "DELETE FROM rsvp_confirmation_choices WHERE group_id=? AND NOT EXISTS ("+
-      "SELECT 1 FROM rsvp_members WHERE group_id=? AND id<>? AND rsvp_status='attending') AND ?!='attending'"
-    ).bind(member.group_id,member.group_id,id,b.status),
     env.DB.prepare("UPDATE rsvp_members SET rsvp_status=?,updated_at=? WHERE id=?")
-      .bind(b.status,b.status==="pending"?null:at,id),
-    env.DB.prepare("INSERT INTO rsvp_member_events(member_id,previous_status,status,source,received_at) VALUES(?,?,?,'admin',?)")
-      .bind(id,member.rsvp_status,b.status,at),
-    // Only when everyone in the group is Not Attending: record NO for the
-    // confirmation email. Never erase an address while anyone still attends.
+      .bind(body.status,body.status==="pending"?null:at,id),
     env.DB.prepare(
-      "INSERT INTO rsvp_confirmation_choices(group_id,choice,email,updated_at) "+
-      "SELECT ?,'NO','',? WHERE ?='not_attending' AND NOT EXISTS ("+
-      "SELECT 1 FROM rsvp_members WHERE group_id=? AND id<>? AND rsvp_status!='not_attending') "+
-      "ON CONFLICT(group_id) DO UPDATE SET choice='NO',email='',updated_at=excluded.updated_at"
-    ).bind(member.group_id,at,b.status,member.group_id,id)
+      "INSERT INTO rsvp_member_events(member_id,previous_status,status,source,received_at) "+
+      "VALUES(?,?,?,'admin',?)"
+    ).bind(id,m.rsvp_status,body.status,at)
   ]);
   await notifyRSVPUpdate(env,"all");
-  return json({ok:true,status:b.status});
+  return json({ok:true,status:body.status});
 }
 async function resetAll(req,env){
   const body=await parseBody(req);
