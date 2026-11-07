@@ -1,6 +1,7 @@
 import { adminPage } from "./admin.js";
 import { adminGroupsPage } from "./admin-groups.js";
 import { groupedRoutes } from "./group-api.js";
+export { RSVPUpdates } from "./rsvp-live.js";
 const enc = new TextEncoder();
 const json = (data,status=200) => new Response(JSON.stringify(data),{status,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
 const fail = (message,status=400) => json({error:message},status);
@@ -172,6 +173,15 @@ export default {
       }});
     }
     if(!env.DB)return fail("Cloudflare D1 database binding is not configured.",503);
+    // WebSocket upgrade responses must be forwarded unchanged. Wrapping a
+    // status-101 response in the normal JSON/CORS decorator would break it.
+    if(url.pathname==="/api/admin/households/live"&&req.method==="GET"){
+      if(req.headers.get("Upgrade")?.toLowerCase()!=="websocket")
+        return fail("WebSocket upgrade required.",426);
+      if(!env.RSVP_LIVE)return fail("Live updates are not configured.",503);
+      const room=env.RSVP_LIVE.get(env.RSVP_LIVE.idFromName("wedding-rsvp-dashboard"));
+      return room.fetch(req);
+    }
     if(url.pathname==="/"&&req.method==="GET")return Response.redirect(env.PUBLIC_SITE_URL||"https://mattiaafanti.github.io/Marriage/",302);
     const origin=req.headers.get("Origin"),headers=cors(origin,env);
     if(origin&&origin!==url.origin&&!Object.keys(headers).length)return fail("Origin not allowed.",403);
