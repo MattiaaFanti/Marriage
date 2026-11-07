@@ -12,7 +12,7 @@ The invitation email is sent only with Gmail via Google Apps Script. No paid ema
 - Cloudflare's background work has a **30-second `waitUntil()` window after the response**. Typical Gmail delivery takes only a few seconds; longer failures may need a separate Queue integration.
 - The confirmation card is a **lossless PNG**. The middle has chair icons, `X seat/seats reserved for you`, and only attending guests' names, in the site's Cormorant Garamond font.
 - The card includes the full reception address: **Bahay Baluk Baluk Restaurant, Maatas Na Kahoy, Lipa City, Batangas**.
-- The email subject is **Mattia & Ker Marriage - Your Wedding Confirmation!**
+- The email subject is **Save the date! - Your Wedding Confirmation**
 - The recipient sees the inline image in the email body, without a signature or extra text.
 - The group-wide Email admin column displays NO for opted-out groups, is blank for Pending, and shows the complete shared email address after sending.
 
@@ -22,7 +22,7 @@ The original second Thank You artwork from the conversation is now committed at 
 
 ## Updating the already-live Google Apps Script deployment
 
-**Required whenever `GMAIL-FREE-MAILER.gs` changes:** GitHub does not synchronize your separately hosted Google Apps Script editor.
+**Only required if you want to update the separately hosted Apps Script code itself:** GitHub does not synchronize your Google Apps Script editor. The current Worker passes the requested subject explicitly, so changing this subject in the Worker does **not** require redeploying Google Apps Script; the updated Apps Script file contains the same text as its fallback.
 
 1. Open your existing Google Apps Script project.
 2. Replace the full contents of Code.gs with the full `GMAIL-FREE-MAILER.gs` source from GitHub.
@@ -41,6 +41,12 @@ The original second Thank You artwork from the conversation is now committed at 
 
 Apps Script documentation: https://developers.google.com/apps-script/reference/mail/mail-app
 Apps Script quotas: https://developers.google.com/apps-script/guides/services/quotas
+
+## Real-time RSVP dashboard
+
+The `/admin` dashboard opens a hibernatable WebSocket through Cloudflare's SQLite-backed `RSVPUpdates` Durable Object. Whenever a guest submits an RSVP, an admin edits a response, the email choice changes, or the history resets, the Worker broadcasts a lightweight event and the open dashboard fetches fresh data **immediately** through the existing AJAX endpoints. The notification contains no guest names or email addresses. No five-second waiting period is used while the WebSocket is connected. If disconnected, the dashboard reconnects automatically and falls back to AJAX checks every five seconds. The WebSocket closes while the browser tab is hidden and reconnects when visible. Existing manual edits, filters, and status selectors remain protected against redraws.
+
+Cloudflare deployment uses the `RSVP_LIVE` Durable Object binding and the `rsvp-live-sqlite-v1` SQLite migration already declared in `wrangler.toml`. No extra secrets are required. The selected configuration is available on Cloudflare Workers Free and Paid plans.
 
 ## Updating manual RSVP statuses
 
