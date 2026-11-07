@@ -499,10 +499,17 @@ async function overview(env){
     "SELECT m.id,m.group_id,m.display_name,m.role,m.rsvp_status,m.updated_at,"+
     "COALESCE(c.choice,'') AS email_choice,"+
     "CASE WHEN m.rsvp_status='pending' THEN '' "+
-    "WHEN c.choice='NO' THEN 'NO' "+
-    "WHEN c.choice='EMAIL' THEN c.email ELSE '' END AS email "+
+    "WHEN c.choice='EMAIL' THEN c.email "+
+    "WHEN p.member_id IS NOT NULL "+
+    "AND p.status_updated_at=COALESCE(m.updated_at,'') THEN p.email "+
+    "WHEN c.choice='NO' THEN 'NO' ELSE '' END AS email,"+
+    "CASE WHEN c.choice='EMAIL' THEN 'sent' "+
+    "WHEN p.member_id IS NOT NULL "+
+    "AND p.status_updated_at=COALESCE(m.updated_at,'') THEN 'processing' "+
+    "ELSE '' END AS email_delivery_status "+
     "FROM rsvp_members m "+
     "LEFT JOIN rsvp_member_email_choices c ON c.member_id=m.id "+
+    "LEFT JOIN rsvp_member_email_pending p ON p.member_id=m.id "+
     "ORDER BY m.group_id,m.id"
   ).all()).results;
   // These seven guests attend virtually when they choose Attending. They
