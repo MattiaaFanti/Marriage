@@ -285,8 +285,24 @@ async function overview(env){
     "FROM rsvp_members m LEFT JOIN rsvp_confirmation_choices c ON c.group_id=m.group_id "+
     "ORDER BY m.group_id,m.id"
   ).all()).results;
-  const summary={groups:groups.length,invited:people.length,pending:0,attending:0,not_attending:0};
-  for(const p of people)summary[p.rsvp_status]++;
+  // These seven guests attend virtually when they choose Attending. They
+  // must not inflate the in-person Attending total; Pending and Not Attending
+  // are counted normally regardless of guest name.
+  const virtualGuests=new Set([
+    "Maria Assunta Morisco","Jessica Fanti","Andrea Lilliu",
+    "Rita Morisco","Mario Buccola","Patrizia Fanti","Angelo Mallus"
+  ]);
+  const summary={
+    groups:groups.length,invited:people.length,
+    pending:0,attending:0,virtually_attending:0,not_attending:0
+  };
+  for(const p of people){
+    if(p.rsvp_status==="attending"&&virtualGuests.has(p.display_name)){
+      summary.virtually_attending++;
+    }else if(Object.hasOwn(summary,p.rsvp_status)){
+      summary[p.rsvp_status]++;
+    }
+  }
   return {groups:groups.map(g=>({...g,members:people.filter(p=>p.group_id===g.id)})),summary};
 }
 async function adminPatch(req,env,id){
