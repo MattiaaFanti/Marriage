@@ -10,3 +10,13 @@ PUBLIC_SITE_URL = "https://mattiaafanti.github.io/Marriage/"
 binding = "DB"
 database_name = "mattia-kirsten-wedding"
 database_id = "029babbd-b923-4f6f-b83b-095c6a912d32"
+
+# Hibernatable WebSocket room for immediate RSVP admin updates.
+# SQLite-backed Durable Objects also work on Cloudflare Workers Free.
+[[durable_objects.bindings]]
+name = "RSVP_LIVE"
+class_name = "RSVPUpdates"
+
+[[migrations]]
+tag = "rsvp-live-sqlite-v1"
+new_sqlite_classes = ["RSVPUpdates"]
