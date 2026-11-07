@@ -1,6 +1,7 @@
 /* Group RSVP API. Exact lookup and all matching guest suggestions from 3 letters.
    The user explicitly opted for showing every matching person in autocomplete. */
 import { ensureGuestMetadata } from "./guest-metadata.js";
+import { notifyRSVPUpdate } from "./rsvp-live.js";
 const textEncoder = new TextEncoder();
 const json = (data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
 const error = (message,status=400)=>json({error:message},status);
@@ -67,6 +68,7 @@ async function saveEmailChoice(env,groupId,choice,email=''){
     "INSERT INTO rsvp_confirmation_choices(group_id,choice,email,updated_at) VALUES(?,?,?,?) "+
     "ON CONFLICT(group_id) DO UPDATE SET choice=excluded.choice,email=excluded.email,updated_at=excluded.updated_at"
   ).bind(groupId,choice,email,new Date().toISOString()).run();
+  await notifyRSVPUpdate(env,"guests");
 }
 async function skipConfirmationEmail(req,env){
   const body=await parseBody(req);
@@ -252,7 +254,7 @@ async function sendConfirmationEmail(req,env,ctx){
           token:env.GMAIL_SCRIPT_TOKEN,
           to:email,
           image_base64:match[1],
-          subject:"Mattia & Ker Marriage - Your Wedding Confirmation!"
+          subject:"Save the date! - Your Wedding Confirmation"
         }),
         redirect:"follow"
       });
@@ -325,6 +327,7 @@ async function submit(req,env){
     statements.push(env.DB.prepare("INSERT INTO rsvp_member_events(member_id,previous_status,status,source,received_at) VALUES(?,?,?,'guest',?)").bind(m.id,m.rsvp_status,status,at));
   }
   await env.DB.batch(statements);
+  await notifyRSVPUpdate(env,"all");
   return json({ok:true,updated:members.length});
 }
 async function overview(env){
@@ -413,6 +416,7 @@ async function adminPatch(req,env,id){
       "ON CONFLICT(group_id) DO UPDATE SET choice='NO',email='',updated_at=excluded.updated_at"
     ).bind(member.group_id,at,b.status,member.group_id,id)
   ]);
+  await notifyRSVPUpdate(env,"all");
   return json({ok:true,status:b.status});
 }
 async function resetAll(req,env){
@@ -436,6 +440,7 @@ async function resetAll(req,env){
     env.DB.prepare("DELETE FROM rsvp_confirmation_choices"),
     env.DB.prepare("DELETE FROM rsvp_member_email_clears")
   ]);
+  await notifyRSVPUpdate(env,"all");
   return json({ok:true,updated:Number(count?.total||0)});
 }
 
@@ -468,6 +473,7 @@ async function resetEventHistory(req,env){
   const body=await parseBody(req);
   if(body?.confirm!=="RESET EVENT HISTORY")return error("Confirmation required.",400);
   const result=await env.DB.prepare("DELETE FROM rsvp_member_events").run();
+  await notifyRSVPUpdate(env,"history");
   return json({ok:true,deleted:Number(result.meta?.changes||0)});
 }
 
