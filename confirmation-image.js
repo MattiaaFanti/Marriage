@@ -46,19 +46,26 @@
     ctx.stroke();ctx.restore();
   };
   function extendBlankBackground(ctx,source,split,gap){
-    // Sample a clean burgundy scanline from the ORIGINAL artwork, including
-    // the gold frame and the outer edges. Stretching only the strip avoids
-    // the black side bars and the vertical color seams of the old fill.
+    // Insert an exact-width section between two consecutive CLEAN rows
+    // of the source illustration (743 and 744). Both rows already contain
+    // the complete gold frame, so the vertical borders remain continuous.
+    // A smooth interpolation avoids dark bars, ghosting and horizontal seams.
+    const upper=ctx.getImageData(0,split-1,W,1).data;
     const scan=document.createElement('canvas');
     scan.width=W;scan.height=1;
     const sc=scan.getContext('2d',{willReadFrequently:true});
-    sc.drawImage(source,0,740,W,1,0,0,W,1);
-    const row=sc.getImageData(0,0,W,1).data;
-    const insert=ctx.createImageData(W,gap);
+    sc.drawImage(source,0,split,W,1,0,0,W,1);
+    const lower=sc.getImageData(0,0,W,1).data;
+    const block=ctx.createImageData(W,gap);
+    const stride=W*4;
     for(let y=0;y<gap;y++){
-      insert.data.set(row,y*W*4);
+      const t=(y+1)/(gap+1),offset=y*stride;
+      for(let i=0;i<stride;i++){
+        block.data[offset+i]=i%4===3?255:
+          Math.round(upper[i]*(1-t)+lower[i]*t);
+      }
     }
-    ctx.putImageData(insert,0,split);
+    ctx.putImageData(block,0,split);
   }
   function guestBlock(ctx,names,split){
     const middle=W/2,n=Math.min(names.length,7);
@@ -137,7 +144,7 @@
     const probe=document.createElement('canvas').getContext('2d');
     const lines=wrap(probe,combined,790,27).length;
     if(lines>5)throw Error('There are too many guest names to fit on the invitation.');
-    const gap=Math.max(185,114+lines*33),split=751;
+    const gap=Math.max(185,114+lines*33),split=744;
     const canvas=document.createElement('canvas');
     canvas.width=W;canvas.height=H+gap;
     const ctx=canvas.getContext('2d',{alpha:false});
