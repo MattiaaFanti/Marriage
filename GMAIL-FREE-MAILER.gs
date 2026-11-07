@@ -39,7 +39,7 @@ function doPost(e) {
     const inline = Utilities.newBlob(bytes, 'image/png', 'mattia-kirsten-confirmation.png');
     MailApp.sendEmail({
       to:to,
-      subject:'Mattia & Ker Marriage - Your Wedding Confirmation!',
+      subject:String(data.subject || 'Mattia & Ker Marriage - Your Wedding Confirmation!').slice(0,180),
       body:' ',
       htmlBody:'<img src="cid:wedding" alt="Mattia and Kirsten wedding confirmation" width="560" style="display:block;width:100%;max-width:560px;height:auto;margin:0 auto;border:0">',
       inlineImages:{wedding:inline},
