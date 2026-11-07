@@ -104,7 +104,7 @@
   modal.innerHTML='<section class="rsvp-dialog" role="dialog" aria-modal="true" aria-labelledby="rsvpHeading"><button class="rsvp-x" type="button" aria-label="Close">×</button><div class="rsvp-content"></div></section>';
   document.body.appendChild(modal);
   const content=modal.querySelector('.rsvp-content');
-  const state={step:'find',name:'',selectedId:null,token:'',members:[],answers:{},error:'',busy:false,confirmationEmail:''};
+  const state={step:'find',name:'',selectedId:null,token:'',members:[],answers:{},error:'',busy:false,confirmationEmail:'',emailChoice:''};
   const enc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const nameKey=s=>String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/\s+/g,' ');
   const validName=s=>s.length>=3&&s.length<=100&&/^[a-z]+(?:[ '-][a-z]+)*$/.test(s);
@@ -190,7 +190,7 @@
           error()+
           '<div class="rsvp-done-actions">'+
           '<button type="submit" class="rsvp-primary rsvp-email-action"'+(state.busy?' disabled':'')+'>'+(state.busy?'Sending…':'Send email - See you soon!')+'</button>'+
-          '<button type="button" class="rsvp-primary rsvp-email-action rsvp-email-skip" data-act="close"'+(state.busy?' disabled':'')+'>Skip - I don&#39;t want a confirmation e-mail</button>'+
+          '<button type="button" class="rsvp-primary rsvp-email-action rsvp-email-skip" data-act="skipEmail"'+(state.busy?' disabled':'')+'>Skip - I don&#39;t want a confirmation e-mail</button>'+
           '</div></form>';
       }else{
         html+=primary('Back to the invitation','close');
@@ -348,7 +348,35 @@
     document.body.classList.add('rsvp-open');
   }
   async function action(kind,options={}){
-    if(kind==='close'){if(!state.busy)close();return;}
+    if(kind==='close'){
+      if(state.busy)return;
+      if(state.step==='done'&&attendingMembers().length&&state.emailChoice!=='EMAIL'){
+        await action('skipEmail');
+      }else close();
+      return;
+    }
+    if(kind==='skipEmail'&&!state.busy){
+      if(!attendingMembers().length){close();return;}
+      if(!api||!state.token){state.error='Confirmation service unavailable.';render();return;}
+      const generation=lookupGeneration;
+      state.busy=true;state.error='';render();
+      try{
+        const response=await fetch(api+'/api/household/skip-confirmation-email',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({household_token:state.token}),cache:'no-store'
+        });
+        const data=await response.json().catch(()=>({}));
+        if(generation!==lookupGeneration)return;
+        if(!response.ok)throw Error(data.error||'Could not save your e-mail preference.');
+        state.emailChoice='NO';state.busy=false;close();return;
+      }catch(err){
+        if(generation!==lookupGeneration)return;
+        state.error=err.message||'Could not save your e-mail preference.';
+      }finally{
+        if(generation===lookupGeneration){state.busy=false;if(!modal.hidden)render();}
+      }
+      return;
+    }
     if(kind==='sendEmail'&&!state.busy){
       if(!attendingMembers().length){state.error='No attending guests were selected.';render();return;}
       const email=String(content.querySelector('#rsvpConfirmEmail')?.value||state.confirmationEmail||'').trim();
@@ -376,7 +404,7 @@
         const data=await response.json().catch(()=>({}));
         if(generation!==lookupGeneration)return;
         if(!response.ok)throw Error(data.error||'Could not send the confirmation e-mail.');
-        state.busy=false;close();return;
+        state.emailChoice='EMAIL';state.busy=false;close();return;
       }catch(err){
         if(generation!==lookupGeneration)return;
         state.error=err.message||'Could not send the confirmation e-mail.';
@@ -472,7 +500,7 @@
     document.body.classList.remove('rsvp-open');
     state.step=preselected?'loading':'find';
     state.name=name;state.selectedId=id;state.token='';state.members=[];
-    state.answers={};state.error='';state.busy=false;state.confirmationEmail='';
+    state.answers={};state.error='';state.busy=false;state.confirmationEmail='';state.emailChoice='';
     if(preselected){
       // Never render a search form during a selected-guest lookup.
       // Reveal only when group choices are ready (or on a real error).
@@ -499,7 +527,7 @@
     bindSuggestions(input,target,(name,id)=>open(name,id));
     form.addEventListener('submit',e=>{e.preventDefault();open(input?.value.trim()||'');});
   });
-  modal.querySelector('.rsvp-x').addEventListener('click',close);
-  modal.addEventListener('click',e=>{if(e.target===modal)close()});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)close()});
+  modal.querySelector('.rsvp-x').addEventListener('click',()=>void action('close'));
+  modal.addEventListener('click',e=>{if(e.target===modal)void action('close')});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.hidden)void action('close')});
 })();
