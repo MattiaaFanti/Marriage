@@ -195,6 +195,6 @@ export default {
     if(origin&&origin!==url.origin&&!Object.keys(headers).length)return fail("Origin not allowed.",403);
     if(req.method==="OPTIONS")return decorate(new Response(null,{status:204}),headers);
     try{return decorate(await route(req,env,ctx),headers);}
-    catch(err){console.error("Wedding API failed",err?.message);return decorate(fail("Unable to complete the request.",500),headers);}
+    catch(err){console.error("Wedding API failed",{method:req.method,path:url.pathname,error:err?.stack||err?.message||String(err)});return decorate(fail("Unable to complete the request.",500),headers);}
   }
 };
