@@ -454,21 +454,44 @@
       state.sendingPhase='Preparing your confirmation email…';render();
       let submitted=null;
       const submission=(async()=>{
-        const prepared=state.preparedImageKey===imageKey&&state.preparedImage?
-          await state.preparedImage:null;
-        const image=prepared||await window.WEDDING_CONFIRMATION_IMAGE.createImage(cardNames,seatCount);
-        const response=await fetch(api+'/api/household/send-confirmation-email',{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({
-            household_token:token,email,
-            image_data_url:image,attending_names:names,
-            attending_member_ids:memberIds
-          }),cache:'no-store'
+        // Image rendering has its own deadline; a stalled canvas must not hold the modal open forever.
+        let imageTimer;
+        const imageDeadline=new Promise((_,reject)=>{
+          imageTimer=setTimeout(()=>reject(Error('Confirmation image preparation timed out. No email request was sent.')),25000);
         });
-        const data=await response.json().catch(()=>({}));
-        if(!response.ok||!data.ok)
-          throw Error(data.error||'The confirmation could not be submitted.');
-        return data;
+        let image;
+        try{
+          image=await Promise.race([
+            (async()=>{
+              const prepared=state.preparedImageKey===imageKey&&state.preparedImage?
+                await state.preparedImage:null;
+              return prepared||await window.WEDDING_CONFIRMATION_IMAGE.createImage(cardNames,seatCount);
+            })(),
+            imageDeadline
+          ]);
+        }finally{clearTimeout(imageTimer);}
+        // Do not automatically retry this POST: the Worker might have accepted it
+        // even if the browser never received its acknowledgement.
+        const controller=new AbortController();
+        const requestTimer=setTimeout(()=>controller.abort(),30000);
+        try{
+          const response=await fetch(api+'/api/household/send-confirmation-email',{
+            method:'POST',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              household_token:token,email,
+              image_data_url:image,attending_names:names,
+              attending_member_ids:memberIds
+            }),cache:'no-store',signal:controller.signal
+          });
+          const data=await response.json().catch(()=>({}));
+          if(!response.ok||!data.ok)
+            throw Error(data.error||'The confirmation could not be submitted.');
+          return data;
+        }catch(error){
+          if(error.name==='AbortError')
+            throw Error('Cloudflare did not confirm the email request within 30 seconds. It may still have been accepted. Check the confirmation status before trying again.');
+          throw error;
+        }finally{clearTimeout(requestTimer);}
       })();
       // The browser must stay on the progress screen until the Worker has
       // accepted the PNG and recipient and registered the delivery request.
