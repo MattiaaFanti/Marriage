@@ -1,6 +1,5 @@
 import { adminPage } from "./admin.js";
 import { adminGroupsPage } from "./admin-groups.js";
-import { adminGroupsPageIT } from "./admin-groups-it.js";
 import { groupedRoutes } from "./group-api.js";
 export { RSVPUpdates } from "./rsvp-live.js";
 const enc = new TextEncoder();
@@ -174,11 +173,7 @@ export default {
       }});
     }
     if(["/admin/ita","/admin/ita/"].includes(url.pathname)){
-      return new Response(adminGroupsPageIT,{headers:{
-        "Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store",
-        "X-Content-Type-Options":"nosniff","Referrer-Policy":"no-referrer",
-        "Content-Security-Policy":"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self' wss://"+url.host+"; base-uri 'none'; frame-ancestors 'none'"
-      }});
+      return Response.redirect(url.origin+"/admin",302);
     }
     if(!env.DB)return fail("Cloudflare D1 database binding is not configured.",503);
     // WebSocket upgrade responses must be forwarded unchanged. Wrapping a
