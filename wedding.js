@@ -252,12 +252,8 @@
   let householdDirectoryPromise=null;
   async function compatibleSuggestions(term){
     if(!householdDirectoryPromise){
-      householdDirectoryPromise=fetch(api+'/api/admin/households',{cache:'no-store'})
-        .then(response=>{
-          if(!response.ok)throw new Error('RSVP household list unavailable');
-          return response.json();
-        })
-        .then(data=>{
+      householdDirectoryPromise=fetchRsvpJson(api+'/api/admin/households',{},2)
+        .then(({data})=>{
           if(!Array.isArray(data.groups))throw new Error('Invalid RSVP household data');
           return data.groups;
         })
@@ -282,6 +278,30 @@
     return results.sort((a,b)=>a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
   }
 
+  // Time-bound requests and retry transient errors; never treat a failed search as no guests.
+  async function fetchRsvpJson(url,options,attempts=3){
+    let lastError;
+    for(let attempt=0;attempt<attempts;attempt++){
+      const controller=new AbortController();
+      const timeout=setTimeout(()=>controller.abort(),9000);
+      try{
+        const response=await fetch(url,{...options,signal:controller.signal,cache:'no-store'});
+        const data=await response.json().catch(()=>null);
+        if(response.ok){
+          if(!data||typeof data!=='object')throw Error('Invalid RSVP server response.');
+          return {response,data};
+        }
+        const err=Error(data?.error||'RSVP service unavailable (HTTP '+response.status+').');
+        if(response.status<500&&response.status!==408&&response.status!==429) return {response,data:data||{}};
+        if(response.status===429)return {response,data:data||{error:err.message}};
+        lastError=err;
+      }catch(error){lastError=error;}
+      finally{clearTimeout(timeout);}
+      if(attempt+1<attempts)await new Promise(resolve=>setTimeout(resolve,450*(attempt+1)));
+    }
+    throw lastError||Error('RSVP service temporarily unavailable.');
+  }
+
   function bindSuggestions(input,target,onSelect){
     if(!input||!target)return;
     target.classList.add('rsvp-suggestions');
@@ -296,22 +316,22 @@
       if(!api||!validName(term))return;
       const timer=setTimeout(async()=>{
         try{
-          const res=await fetch(api+'/api/household/suggest',{
+          const {response:res,data}=await fetchRsvpJson(api+'/api/household/suggest',{
             method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({query:term}),cache:'no-store'
+            body:JSON.stringify({query:term})
           });
-          const data=await res.json().catch(()=>({}));
           if(serial!==suggestionSerial||nameKey(input.value)!==term||!target.isConnected)return;
           if(!res.ok){
-            if(res.status===429)showSuggestionNote(target,'Too many searches. Please try again later.');
+            showSuggestionNote(target,res.status===429?'Too many searches. Please try again later.':'Guest search temporarily unavailable. Please retry.');
             return;
           }
-          let options=Array.isArray(data.suggestions)?data.suggestions:[];
+          if(!Array.isArray(data.suggestions))throw Error('Invalid RSVP suggestions received.');
+          let options=data.suggestions;
           // Older Workers returned one suggestion at most, without seat_count.
           // Recover all guest matches from the already-public admin overview.
           const outdated=data.needs_more_letters===true||
             options.some(p=>!Number.isSafeInteger(Number(p.seat_count))||
-                            Number(p.seat_count)<1)||options.length===0;
+                            Number(p.seat_count)<1);
           if(outdated){
             try{
               const recovered=await compatibleSuggestions(term);
@@ -356,7 +376,11 @@
           }
           target.replaceChildren(buttons);
           target.hidden=target.childElementCount===0;
-        }catch(_error){ /* No names shown on temporary network failures. */ }
+        }catch(error){
+          if(serial===suggestionSerial&&nameKey(input.value)===term&&target.isConnected)
+            showSuggestionNote(target,'Guest search temporarily unavailable. Please retry.');
+          console.warn('[RSVP] Suggestion request failed:',error);
+        }
       },300);
       suggestionTimers.set(input,timer);
     };
@@ -499,11 +523,10 @@
       try{
         const request={name};
         if(state.selectedId&&Number.isSafeInteger(state.selectedId))request.member_id=state.selectedId;
-        const resp=await fetch(api+'/api/household/lookup',{
+        const {response:resp,data}=await fetchRsvpJson(api+'/api/household/lookup',{
           method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify(request),cache:'no-store'
+          body:JSON.stringify(request)
         });
-        const data=await resp.json().catch(()=>({}));
         if(generation!==lookupGeneration)return;
         if(!resp.ok)throw Error(data.error||'Unable to find the invitation.');
         if(!Array.isArray(data.members)||!data.members.length||!data.household_token)
