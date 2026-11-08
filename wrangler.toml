@@ -20,3 +20,7 @@ class_name = "RSVPUpdates"
 [[migrations]]
 tag = "rsvp-live-sqlite-v1"
 new_sqlite_classes = ["RSVPUpdates"]
+
+[observability.logs]
+enabled = true
+invocation_logs = true
