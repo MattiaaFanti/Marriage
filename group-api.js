@@ -160,9 +160,51 @@ async function candidates(q,env){
   ).bind(prefix,prefix,wordPrefix).all();
   return rows.results||[];
 }
+// One additive, idempotent guest registration for this invitation.
+ // No existing guest, RSVP response or history is updated.
+let tessReady=false,tessSetup=null;
+async function ensureTessRada(env){
+  if(tessReady)return;
+  if(tessSetup)return tessSetup;
+  tessSetup=(async()=>{
+    // If she was already added, leave that record untouched.
+    const existing=await env.DB.prepare(
+      "SELECT id FROM rsvp_members WHERE display_name=? LIMIT 1"
+    ).bind("Tess Rada").first();
+    if(!existing){
+      const group="single-tess-rada-2026";
+      await env.DB.batch([
+        env.DB.prepare("INSERT OR IGNORE INTO rsvp_groups(group_code) VALUES(?)").bind(group),
+        env.DB.prepare(
+          "INSERT OR IGNORE INTO rsvp_members(group_id,display_name,role,rsvp_status,updated_at) "+
+          "SELECT id,?,'','pending',NULL FROM rsvp_groups WHERE group_code=?"
+        ).bind("Tess Rada",group),
+        env.DB.prepare(
+          "INSERT OR IGNORE INTO rsvp_aliases(alias,member_id) "+
+          "SELECT ?,m.id FROM rsvp_members m JOIN rsvp_groups g ON g.id=m.group_id "+
+          "WHERE g.group_code=? AND m.display_name=?"
+        ).bind("tess rada",group,"Tess Rada"),
+        env.DB.prepare(
+          "INSERT OR IGNORE INTO rsvp_aliases(alias,member_id) "+
+          "SELECT ?,m.id FROM rsvp_members m JOIN rsvp_groups g ON g.id=m.group_id "+
+          "WHERE g.group_code=? AND m.display_name=?"
+        ).bind("tess",group,"Tess Rada"),
+        env.DB.prepare(
+          "INSERT OR IGNORE INTO rsvp_aliases(alias,member_id) "+
+          "SELECT ?,m.id FROM rsvp_members m JOIN rsvp_groups g ON g.id=m.group_id "+
+          "WHERE g.group_code=? AND m.display_name=?"
+        ).bind("rada",group,"Tess Rada")
+      ]);
+    }
+    tessReady=true;
+  })().finally(()=>{tessSetup=null});
+  return tessSetup;
+}
+
 async function suggest(req,env){
   const body=await parseBody(req),q=nameKey(body?.query);
   if(!validKey(q))return json({suggestions:[],needs_more_letters:false});
+  await ensureTessRada(env);
   const hits=await candidates(q,env);
   // Show all matches; clicking one sends its precise member_id to lookup.
   return json({suggestions:hits.map(m=>({
@@ -173,6 +215,7 @@ async function suggest(req,env){
 async function lookup(req,env){
   const body=await parseBody(req),name=nameKey(body?.name);
   if(!validKey(name))return error("Enter your first name, surname or full name (at least 3 letters).");
+  await ensureTessRada(env);
   let found=[];
   if(Number.isSafeInteger(body?.member_id)&&body.member_id>0){
     // The autocomplete item is only accepted for the displayed full name.
@@ -403,6 +446,7 @@ async function submit(req,env){
   });
 }
 async function overview(env){
+  await ensureTessRada(env);
   const groups=(await env.DB.prepare(
     "SELECT id,group_code FROM rsvp_groups "+
     "ORDER BY CASE "+
